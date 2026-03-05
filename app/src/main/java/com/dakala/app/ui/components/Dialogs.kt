@@ -99,6 +99,8 @@ fun TimePickerDialog(
  * 用于设置应用的时长阈值。
  *
  * @param currentThreshold 当前阈值（秒）
+ * @param title 对话框标题
+ * @param description 对话框描述
  * @param onThresholdSelected 阈值选择回调
  * @param onDismiss 取消回调
  */
@@ -106,6 +108,8 @@ fun TimePickerDialog(
 @Composable
 fun DurationThresholdDialog(
     currentThreshold: Int = 600,
+    title: String = "设置时长阈值",
+    description: String = "设置应用需要使用的最小时长",
     onThresholdSelected: (seconds: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -114,11 +118,11 @@ fun DurationThresholdDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("设置时长阈值") },
+        title = { Text(title) },
         text = {
             Column {
                 Text(
-                    text = "设置应用需要使用的最小时长",
+                    text = description,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))

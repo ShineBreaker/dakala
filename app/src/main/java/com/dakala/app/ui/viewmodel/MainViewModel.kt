@@ -84,6 +84,12 @@ class MainViewModel @Inject constructor(
     val notificationTime: StateFlow<String> = _notificationTime.asStateFlow()
 
     /**
+     * 默认时长阈值（秒）
+     */
+    private val _defaultDurationThreshold = MutableStateFlow(600)
+    val defaultDurationThreshold: StateFlow<Int> = _defaultDurationThreshold.asStateFlow()
+
+    /**
      * 加载状态
      */
     private val _isLoading = MutableStateFlow(false)
@@ -105,6 +111,7 @@ class MainViewModel @Inject constructor(
 
     init {
         loadNotificationTime()
+        loadDefaultDurationThreshold()
         refreshUsageStats()
     }
 
@@ -175,6 +182,28 @@ class MainViewModel @Inject constructor(
             repository.setNotificationTime(time)
             _notificationTime.value = time
             Log.d(TAG, "通知时间已设置为: $time")
+        }
+    }
+
+    /**
+     * 加载默认时长阈值设置
+     */
+    private fun loadDefaultDurationThreshold() {
+        viewModelScope.launch {
+            _defaultDurationThreshold.value = repository.getDefaultDurationThreshold()
+        }
+    }
+
+    /**
+     * 设置默认时长阈值
+     *
+     * @param threshold 时长阈值（秒）
+     */
+    fun setDefaultDurationThreshold(threshold: Int) {
+        viewModelScope.launch {
+            repository.setDefaultDurationThreshold(threshold)
+            _defaultDurationThreshold.value = threshold
+            Log.d(TAG, "默认时长阈值已设置为: $threshold 秒")
         }
     }
 

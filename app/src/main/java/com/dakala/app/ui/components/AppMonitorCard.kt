@@ -13,6 +13,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -40,12 +42,14 @@ import com.dakala.app.ui.theme.DakalaColors
  *
  * @param status 应用监控状态
  * @param onAppClick 点击应用时的回调
+ * @param onSettingsClick 点击设置按钮时的回调
  * @param modifier 修饰符
  */
 @Composable
 fun AppMonitorCard(
     status: AppMonitorStatus,
     onAppClick: (String) -> Unit,
+    onSettingsClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -178,6 +182,18 @@ fun AppMonitorCard(
                     text = "目标: ${status.thresholdFormatted}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // 设置按钮
+            IconButton(
+                onClick = { onSettingsClick(status.appItem.packageName) },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "设置时长",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

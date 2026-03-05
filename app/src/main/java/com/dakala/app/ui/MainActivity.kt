@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dakala.app.R
+import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.ui.components.*
 import com.dakala.app.ui.theme.DakalaTheme
 import com.dakala.app.ui.util.PermissionHelper
@@ -87,6 +89,17 @@ fun MainScreen(
     // 时间选择对话框状态
     var showTimePicker by remember { mutableStateOf(false) }
 
+    // 时长设置对话框状态
+    var showDurationDialog by remember { mutableStateOf(false) }
+    var selectedAppForDuration by remember { mutableStateOf<AppMonitorStatus?>(null) }
+
+    // 设置菜单状态
+    var showSettingsMenu by remember { mutableStateOf(false) }
+
+    // 默认时长设置对话框状态
+    var showDefaultDurationDialog by remember { mutableStateOf(false) }
+    val defaultDurationThreshold by viewModel.defaultDurationThreshold.collectAsState()
+
     // 权限请求启动器
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -129,12 +142,39 @@ fun MainScreen(
                             contentDescription = "刷新"
                         )
                     }
-                    // 设置通知时间按钮
-                    IconButton(onClick = { showTimePicker = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = stringResource(R.string.settings_notification_time)
-                        )
+                    // 设置菜单
+                    Box {
+                        IconButton(onClick = { showSettingsMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "设置"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSettingsMenu,
+                            onDismissRequest = { showSettingsMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("设置通知时间") },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    showTimePicker = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Notifications, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("设置默认时长") },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    showDefaultDurationDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Settings, contentDescription = null)
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -185,6 +225,10 @@ fun MainScreen(
                                 status = status,
                                 onAppClick = { packageName ->
                                     openApp(context, packageName)
+                                },
+                                onSettingsClick = { packageName ->
+                                    selectedAppForDuration = monitorStatusGroup.incompleteApps.find { it.appItem.packageName == packageName }
+                                    showDurationDialog = true
                                 }
                             )
                         }
@@ -204,6 +248,10 @@ fun MainScreen(
                                 status = status,
                                 onAppClick = { packageName ->
                                     openApp(context, packageName)
+                                },
+                                onSettingsClick = { packageName ->
+                                    selectedAppForDuration = monitorStatusGroup.completedApps.find { it.appItem.packageName == packageName }
+                                    showDurationDialog = true
                                 }
                             )
                         }
@@ -223,6 +271,41 @@ fun MainScreen(
                 viewModel.setNotificationTime(timeString)
             },
             onDismiss = { showTimePicker = false }
+        )
+    }
+
+    // 时长设置对话框
+    if (showDurationDialog && selectedAppForDuration != null) {
+        DurationThresholdDialog(
+            currentThreshold = selectedAppForDuration!!.appItem.durationThreshold,
+            onThresholdSelected = { seconds ->
+                viewModel.updateDurationThreshold(
+                    selectedAppForDuration!!.appItem.packageName,
+                    seconds
+                )
+                showDurationDialog = false
+                selectedAppForDuration = null
+            },
+            onDismiss = {
+                showDurationDialog = false
+                selectedAppForDuration = null
+            }
+        )
+    }
+
+    // 默认时长设置对话框
+    if (showDefaultDurationDialog) {
+        DurationThresholdDialog(
+            currentThreshold = defaultDurationThreshold,
+            title = "设置默认时长",
+            description = "新添加应用的默认目标时长",
+            onThresholdSelected = { seconds ->
+                viewModel.setDefaultDurationThreshold(seconds)
+                showDefaultDurationDialog = false
+            },
+            onDismiss = {
+                showDefaultDurationDialog = false
+            }
         )
     }
 }
