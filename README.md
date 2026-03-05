@@ -1,6 +1,8 @@
 # 打卡啦 (Dakala)
 
-一款帮助用户监控已选应用每日使用情况的Android应用。
+一款帮助用户打卡清日常的Android应用，具体原理为当你今天没有打开某个软件并打开到某个时长时，会在设定的时间进行提示，以防止用户错过今日的游戏签到奖励。
+
+本项目使用 **glm-5** 和 **qwen-code** 来生成，并利用 **zed** 编辑器来验收成果以及修正。
 
 ## 📱 功能特点
 
@@ -62,10 +64,10 @@ app/src/main/java/com/dakala/app/
 
 ```bash
 # 安装JDK 17
-sudo pacman -S jdk17-openjdk
+sudo pacman -S jdk17-openjdk gradle
 
 # 设置JAVA_HOME
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+archlinux-java set java-17-openjdk
 ```
 
 #### Ubuntu/Debian
@@ -73,7 +75,7 @@ export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 ```bash
 # 安装JDK 17
 sudo apt update
-sudo apt install openjdk-17-jdk
+sudo apt install openjdk-17-jdk gradle
 
 # 设置JAVA_HOME
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
@@ -90,9 +92,6 @@ cd /path/to/your/workspace
 
 ```bash
 cd dakala
-
-# 赋予Gradle Wrapper执行权限
-chmod +x gradlew
 
 # 编译Debug版本
 gradle assembleDebug
@@ -168,7 +167,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ### 兼容性
 
 - **最低支持**：Android 10 (API 29)
-- **最高测试**：Android 15 (API 35)
+- **最高测试**：Android 16 (API 36)
 - **推荐设备**：Android 12 及以上
 
 ### 隐私声明
