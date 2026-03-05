@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">打卡啦</string>
+
+    <!-- 主界面 -->
+    <string name="settings_monitor_apps">设置监控应用</string>
+    <string name="settings_notification_time">设置通知时间</string>
+    <string name="incomplete_section">未完成</string>
+    <string name="completed_section">已完成</string>
+    <string name="no_monitored_apps">暂无监控应用，点击上方按钮添加</string>
+
+    <!-- 应用状态 -->
+    <string name="status_opened">已打开</string>
+    <string name="status_not_opened">未打开</string>
+    <string name="duration_format">%d分钟</string>
+    <string name="duration_seconds_format">%d秒</string>
+
+    <!-- 权限相关 -->
+    <string name="permission_required">需要权限</string>
+    <string name="usage_permission_message">请前往设置 > 应用 > 打卡啦 > 权限 > 最近使用的应用，开启权限后才能监控应用使用情况</string>
+    <string name="go_to_settings">前往设置</string>
+    <string name="permission_denied">权限被拒绝，无法监控应用使用情况</string>
+
+    <!-- 通知相关 -->
+    <string name="notification_title">打卡提醒</string>
+    <string name="notification_content_incomplete">以下应用今日未完成打卡目标：</string>
+    <string name="notification_content_not_opened">未打开：%s</string>
+    <string name="notification_content_insufficient" formatted="false">时长不足：%s（%d分钟）</string>
+    <string name="notification_channel_name">打卡提醒</string>
+    <string name="notification_channel_description">定时提醒您完成每日应用打卡目标</string>
+
+    <!-- 小部件 -->
+    <string name="widget_title">打卡状态</string>
+    <string name="widget_no_data">暂无数据</string>
+    <string name="widget_all_completed">今日目标已全部完成！</string>
+
+    <!-- 应用选择 -->
+    <string name="select_apps_title">选择要监控的应用</string>
+    <string name="search_hint">搜索应用</string>
+    <string name="save">保存</string>
+    <string name="cancel">取消</string>
+
+    <!-- 设置 -->
+    <string name="default_notification_time">22:00</string>
+    <string name="default_duration_threshold">10分钟</string>
+    <string name="duration_threshold_label">时长阈值（分钟）</string>
+
+    <!-- 时间选择 -->
+    <string name="select_time">选择通知时间</string>
+    <string name="confirm">确认</string>
+</resources>

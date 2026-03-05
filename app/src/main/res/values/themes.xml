@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 Expressive 主题 -->
+    <style name="Theme.Dakala" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- 主色调 -->
+        <item name="android:colorPrimary">@color/primary</item>
+        <item name="android:colorPrimaryDark">@color/primary</item>
+        <item name="android:colorAccent">@color/primary</item>
+        
+        <!-- 背景色 -->
+        <item name="android:colorBackground">@color/background</item>
+        <item name="android:windowBackground">@color/background</item>
+        
+        <!-- 状态栏 -->
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        
+        <!-- 导航栏 -->
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+    
+    <!-- 小部件主题 -->
+    <style name="Theme.Dakala.Widget" parent="android:Theme.Material.Light">
+        <item name="android:colorPrimary">@color/primary</item>
+        <item name="android:colorBackground">@color/background</item>
+    </style>
+</resources>

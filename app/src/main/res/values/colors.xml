@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色调 - 使用Material 3 Expressive风格 -->
+    <color name="primary">#FF6B35</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="primary_container">#FFDBD1</color>
+    <color name="on_primary_container">#3D0D00</color>
+    
+    <!-- 次要色调 -->
+    <color name="secondary">#77574D</color>
+    <color name="on_secondary">#FFFFFF</color>
+    <color name="secondary_container">#FFDBD1</color>
+    <color name="on_secondary_container">#2C150F</color>
+    
+    <!-- 第三色调 -->
+    <color name="tertiary">#695D2F</color>
+    <color name="on_tertiary">#FFFFFF</color>
+    <color name="tertiary_container">#F3E1A6</color>
+    <color name="on_tertiary_container">#221B00</color>
+    
+    <!-- 背景色 -->
+    <color name="background">#FFF8F5</color>
+    <color name="on_background">#231916</color>
+    <color name="surface">#FFF8F5</color>
+    <color name="on_surface">#231916</color>
+    
+    <!-- 表面变体 -->
+    <color name="surface_variant">#F5DDD6</color>
+    <color name="on_surface_variant">#53433F</color>
+    
+    <!-- 轮廓色 -->
+    <color name="outline">#85736E</color>
+    <color name="outline_variant">#D8C2BB</color>
+    
+    <!-- 状态色 -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+    <color name="error">#BA1A1A</color>
+    
+    <!-- 特殊色 -->
+    <color name="incomplete_background">#FFEBEE</color>
+    <color name="completed_background">#E8F5E9</color>
+    <color name="grayscale_filter">#808080</color>
+</resources>
