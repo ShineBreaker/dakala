@@ -30,14 +30,14 @@ import com.dakala.app.ui.theme.DakalaColors
 
 /**
  * 应用监控项卡片组件
- * 
+ *
  * 显示单个应用的监控状态，包括：
  * - 应用图标（已完成则灰度处理）
  * - 应用名称
  * - 今日打开状态
  * - 今日使用时长
  * - 完成进度
- * 
+ *
  * @param status 应用监控状态
  * @param onAppClick 点击应用时的回调
  * @param modifier 修饰符
@@ -50,7 +50,7 @@ fun AppMonitorCard(
 ) {
     val context = LocalContext.current
     val isCompleted = status.isCompleted
-    
+
     // 获取应用图标
     val appIcon = remember(status.appItem.packageName) {
         try {
@@ -59,7 +59,7 @@ fun AppMonitorCard(
             context.getDrawable(android.R.drawable.sym_def_app_icon)
         }
     }
-    
+
     // 如果已完成，将图标转换为灰度
     val displayIcon = remember(isCompleted, appIcon) {
         if (isCompleted && appIcon != null) {
@@ -76,9 +76,9 @@ fun AppMonitorCard(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isCompleted) {
-                DakalaColors.CompletedBackground
+                DakalaColors.getCompletedBackground()
             } else {
-                DakalaColors.IncompleteBackground
+                DakalaColors.getIncompleteBackground()
             }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -99,9 +99,9 @@ fun AppMonitorCard(
                         .clip(RoundedCornerShape(12.dp))
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             // 应用信息
             Column(
                 modifier = Modifier.weight(1f),
@@ -114,9 +114,9 @@ fun AppMonitorCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 // 状态信息
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -135,17 +135,17 @@ fun AppMonitorCard(
                             MaterialTheme.colorScheme.error
                         }
                     )
-                    
+
                     Spacer(modifier = Modifier.width(8.dp))
-                    
+
                     Text(
                         text = "•",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
+
                     Spacer(modifier = Modifier.width(8.dp))
-                    
+
                     // 使用时长
                     Text(
                         text = status.todayDurationFormatted,
@@ -153,9 +153,9 @@ fun AppMonitorCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 // 进度条
                 LinearProgressIndicator(
                     progress = { status.progress },
@@ -170,9 +170,9 @@ fun AppMonitorCard(
                     },
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 // 目标提示
                 Text(
                     text = "目标: ${status.thresholdFormatted}",
@@ -186,7 +186,7 @@ fun AppMonitorCard(
 
 /**
  * 将Drawable转换为灰度图
- * 
+ *
  * @param drawable 原始Drawable
  * @return 灰度化的Drawable
  */
@@ -197,7 +197,7 @@ private fun convertToGrayscale(drawable: Drawable): Drawable {
         bitmap.height,
         Bitmap.Config.ARGB_8888
     )
-    
+
     val canvas = Canvas(grayBitmap)
     val paint = Paint()
     val colorMatrix = ColorMatrix().apply {
@@ -205,39 +205,39 @@ private fun convertToGrayscale(drawable: Drawable): Drawable {
     }
     paint.colorFilter = ColorMatrixColorFilter(colorMatrix)
     canvas.drawBitmap(bitmap, 0f, 0f, paint)
-    
+
     return BitmapDrawable(grayBitmap)
 }
 
 /**
  * 将Drawable转换为Bitmap
- * 
+ *
  * @param drawable Drawable对象
  * @return Bitmap对象
  */
-private fun drawableToBitmap(drawable: Drawable): Bitmap {
+internal fun drawableToBitmap(drawable: Drawable): Bitmap {
     if (drawable is BitmapDrawable) {
         return drawable.bitmap
     }
-    
+
     val bitmap = Bitmap.createBitmap(
         drawable.intrinsicWidth.coerceAtLeast(1),
         drawable.intrinsicHeight.coerceAtLeast(1),
         Bitmap.Config.ARGB_8888
     )
-    
+
     val canvas = Canvas(bitmap)
     drawable.setBounds(0, 0, canvas.width, canvas.height)
     drawable.draw(canvas)
-    
+
     return bitmap
 }
 
 /**
  * 空状态组件
- * 
+ *
  * 当没有监控应用时显示。
- * 
+ *
  * @param message 提示信息
  * @param modifier 修饰符
  */
@@ -271,7 +271,7 @@ fun EmptyState(
 
 /**
  * 分组标题组件
- * 
+ *
  * @param title 标题
  * @param count 数量
  * @param modifier 修饰符

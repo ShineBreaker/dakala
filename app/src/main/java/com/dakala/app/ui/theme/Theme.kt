@@ -150,12 +150,34 @@ fun DakalaTheme(
 }
 
 /**
- * 扩展颜色定义
+ * 扩展颜色定义 - 支持深色模式
  */
 object DakalaColors {
-    val IncompleteBackground = Color(0xFFFFEBEE)
-    val CompletedBackground = Color(0xFFE8F5E9)
+    // 浅色模式颜色
+    val IncompleteBackgroundLight = Color(0xFFFFEBEE)
+    val CompletedBackgroundLight = Color(0xFFE8F5E9)
+    
+    // 深色模式颜色
+    val IncompleteBackgroundDark = Color(0xFF4A1C1C)
+    val CompletedBackgroundDark = Color(0xFF1B3D1F)
+    
     val Success = Color(0xFF4CAF50)
     val Warning = Color(0xFFFF9800)
     val GrayscaleFilter = Color(0xFF808080)
+    
+    /**
+     * 获取未完成背景色
+     */
+    @Composable
+    fun getIncompleteBackground(darkTheme: Boolean = isSystemInDarkTheme()): Color {
+        return if (darkTheme) IncompleteBackgroundDark else IncompleteBackgroundLight
+    }
+    
+    /**
+     * 获取已完成背景色
+     */
+    @Composable
+    fun getCompletedBackground(darkTheme: Boolean = isSystemInDarkTheme()): Color {
+        return if (darkTheme) CompletedBackgroundDark else CompletedBackgroundLight
+    }
 }

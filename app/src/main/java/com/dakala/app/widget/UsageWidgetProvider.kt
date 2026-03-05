@@ -23,15 +23,15 @@ import kotlinx.coroutines.launch
 
 /**
  * 应用使用状态桌面小部件
- * 
+ *
  * 显示未完成打卡的应用列表，点击可快速打开对应应用。
- * 
+ *
  * 功能特点：
  * 1. 显示未打开和时长不足的应用
  * 2. 点击应用项可直接打开应用
  * 3. 定期自动刷新（每30分钟）
  * 4. 支持手动刷新
- * 
+ *
  * 更新机制：
  * - 系统定期调用onUpdate刷新小部件
  * - 应用使用状态变化时可主动调用updateWidget刷新
@@ -40,20 +40,20 @@ class UsageWidgetProvider : AppWidgetProvider() {
 
     companion object {
         private const val TAG = "UsageWidgetProvider"
-        
+
         const val ACTION_APP_CLICKED = "com.dakala.app.ACTION_APP_CLICKED"
         const val EXTRA_PACKAGE_NAME = "package_name"
-        
+
         /**
          * 手动更新所有小部件
-         * 
+         *
          * @param context 上下文
          */
         fun updateWidget(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, UsageWidgetProvider::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
-            
+
             val intent = Intent(context, UsageWidgetProvider::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
@@ -68,7 +68,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         Log.d(TAG, "onUpdate: 更新 ${appWidgetIds.size} 个小部件")
-        
+
         // 使用协程异步加载数据
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -81,7 +81,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        
+
         when (intent.action) {
             ACTION_APP_CLICKED -> {
                 // 处理应用点击事件
@@ -117,7 +117,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
 
         // 获取未完成的应用列表
         val incompleteApps = getIncompleteApps(context)
-        
+
         // 更新每个小部件
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId, incompleteApps)
@@ -131,15 +131,15 @@ class UsageWidgetProvider : AppWidgetProvider() {
         val database = AppUsageDatabase.getInstance(context)
         val appItemDao = database.appItemDao()
         val usageStatsUseCase = UsageStatsUseCase(context)
-        
+
         // 获取所有被监控的应用
         val monitoredApps = appItemDao.getMonitoredApps()
-        
+
         // 筛选未完成的应用
         return monitoredApps.mapNotNull { app ->
             val duration = usageStatsUseCase.getAppUsageDuration(app.packageName)
             val isCompleted = duration >= app.durationThreshold
-            
+
             if (!isCompleted) {
                 AppItemWithStatus(
                     app = app,
@@ -162,7 +162,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
         incompleteApps: List<AppItemWithStatus>
     ) {
         val views = RemoteViews(context.packageName, R.layout.widget_usage)
-        
+
         if (incompleteApps.isEmpty()) {
             // 所有应用都已完成
             views.setViewVisibility(R.id.widget_list, android.view.View.GONE)
@@ -172,14 +172,13 @@ class UsageWidgetProvider : AppWidgetProvider() {
             // 显示未完成的应用列表
             views.setViewVisibility(R.id.widget_list, android.view.View.VISIBLE)
             views.setViewVisibility(R.id.widget_empty, android.view.View.GONE)
-            
-            // 设置列表适配器
+
+            // 设置列表适配器 - WidgetService 会直接查询数据库
             val intent = Intent(context, WidgetService::class.java)
             intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            intent.putParcelableArrayListExtra("apps", ArrayList(incompleteApps.map { it.toParcelable() }))
             views.setRemoteAdapter(R.id.widget_list, intent)
         }
-        
+
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 
@@ -217,9 +216,8 @@ class UsageWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * 可序列化的应用数据（用于Intent传递）
+     * 可序列化的应用数据（用于 Intent 传递）
      */
-    @android.os.Parcelable
     data class AppParcelable(
         val packageName: String,
         val appName: String,

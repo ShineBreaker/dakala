@@ -37,15 +37,15 @@ app/src/main/java/com/dakala/app/
 
 ### 技术栈
 
-| 类别 | 技术 |
-|------|------|
-| 语言 | Kotlin 2.1.0 |
-| UI | Jetpack Compose + Material 3 |
-| 架构 | MVVM + Clean Architecture |
-| 依赖注入 | Hilt |
-| 数据库 | Room |
-| 后台任务 | WorkManager |
-| 应用统计 | UsageStatsManager |
+| 类别     | 技术                         |
+| -------- | ---------------------------- |
+| 语言     | Kotlin 2.1.0                 |
+| UI       | Jetpack Compose + Material 3 |
+| 架构     | MVVM + Clean Architecture    |
+| 依赖注入 | Hilt                         |
+| 数据库   | Room                         |
+| 后台任务 | WorkManager                  |
+| 应用统计 | UsageStatsManager            |
 
 ## 🔧 环境要求
 
@@ -95,13 +95,14 @@ cd dakala
 chmod +x gradlew
 
 # 编译Debug版本
-./gradlew assembleDebug
+gradle assembleDebug
 
 # 编译Release版本
-./gradlew assembleRelease
+gradle assembleRelease
 ```
 
 编译完成后，APK文件位于：
+
 - Debug版本：`app/build/outputs/apk/debug/app-debug.apk`
 - Release版本：`app/build/outputs/apk/release/app-release.apk`
 
@@ -159,6 +160,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 本应用需要 `PACKAGE_USAGE_STATS` 权限来获取应用使用统计数据。这是一个特殊权限，**无法通过代码直接请求**，必须引导用户到系统设置中手动开启。
 
 权限路径：
+
 ```
 设置 > 应用 > 打卡啦 > 权限 > 最近使用的应用 > 开启
 ```
@@ -180,37 +182,37 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ### 数据层 (Data Layer)
 
-| 文件 | 说明 |
-|------|------|
-| `AppItem.kt` | 应用监控项实体类 |
-| `UsageRecord.kt` | 使用记录实体类 |
-| `AppUsageDatabase.kt` | Room数据库配置 |
-| `AppDao.kt` | 数据访问对象接口 |
+| 文件                    | 说明                       |
+| ----------------------- | -------------------------- |
+| `AppItem.kt`            | 应用监控项实体类           |
+| `UsageRecord.kt`        | 使用记录实体类             |
+| `AppUsageDatabase.kt`   | Room数据库配置             |
+| `AppDao.kt`             | 数据访问对象接口           |
 | `AppUsageRepository.kt` | 数据仓库，封装数据访问逻辑 |
 
 ### 业务逻辑层 (Domain Layer)
 
-| 文件 | 说明 |
-|------|------|
+| 文件                   | 说明                      |
+| ---------------------- | ------------------------- |
 | `UsageStatsUseCase.kt` | 封装UsageStatsManager调用 |
-| `AppMonitorStatus.kt` | 应用监控状态UI模型 |
+| `AppMonitorStatus.kt`  | 应用监控状态UI模型        |
 
 ### UI层 (UI Layer)
 
-| 文件 | 说明 |
-|------|------|
-| `MainActivity.kt` | 主界面，显示监控状态 |
-| `AppSelectionActivity.kt` | 应用选择界面 |
-| `MainViewModel.kt` | 主界面ViewModel |
-| `PermissionHelper.kt` | 权限检查和引导工具 |
+| 文件                      | 说明                 |
+| ------------------------- | -------------------- |
+| `MainActivity.kt`         | 主界面，显示监控状态 |
+| `AppSelectionActivity.kt` | 应用选择界面         |
+| `MainViewModel.kt`        | 主界面ViewModel      |
+| `PermissionHelper.kt`     | 权限检查和引导工具   |
 
 ### 后台服务 (Background Services)
 
-| 文件 | 说明 |
-|------|------|
-| `NotificationWorker.kt` | 定时通知任务 |
-| `UsageWidgetProvider.kt` | 桌面小部件 |
-| `BootReceiver.kt` | 开机启动接收器 |
+| 文件                     | 说明           |
+| ------------------------ | -------------- |
+| `NotificationWorker.kt`  | 定时通知任务   |
+| `UsageWidgetProvider.kt` | 桌面小部件     |
+| `BootReceiver.kt`        | 开机启动接收器 |
 
 ## 🛠️ 开发指南
 
@@ -218,41 +220,28 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ```bash
 # 运行单元测试
-./gradlew test
+gradle test
 
 # 运行Android测试（需要连接设备）
-./gradlew connectedAndroidTest
+gradle connectedAndroidTest
 ```
 
 ### 代码检查
 
 ```bash
 # Lint检查
-./gradlew lint
+gradle lint
 
 # Kotlin代码风格检查
-./gradlew ktlintCheck
+gradle ktlintCheck
 ```
 
 ### 清理项目
 
 ```bash
-./gradlew clean
+gradle clean
 ```
-
-## 📝 更新日志
-
-### v1.0.0 (2024-01-01)
-
-- 初始版本发布
-- 支持应用监控和打卡提醒
-- 支持桌面小部件
 
 ## 📄 许可证
 
-本项目仅供学习和参考使用。
-
----
-
-**开发者**：Qwen Code  
-**创建日期**：2026年3月5日
+MIT License

@@ -23,13 +23,13 @@ import javax.inject.Inject
 
 /**
  * 主界面ViewModel
- * 
+ *
  * 负责管理主界面的数据和业务逻辑，包括：
  * 1. 加载和显示被监控的应用列表
  * 2. 获取和更新应用使用时长
  * 3. 管理通知时间设置
  * 4. 提供应用选择功能
- * 
+ *
  * @property application 应用上下文
  * @property repository 数据仓库
  * @property usageStatsUseCase 使用统计用例
@@ -48,6 +48,12 @@ class MainViewModel @Inject constructor(
     // ==================== UI状态 ====================
 
     /**
+     * 今日使用时长映射（包名 -> 秒数）
+     */
+    private val _todayUsageMap = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val todayUsageMap: StateFlow<Map<String, Int>> = _todayUsageMap.asStateFlow()
+
+    /**
      * 监控状态分组（按完成状态分组）
      */
     val monitorStatusGroup: StateFlow<MonitorStatusGroup> = combine(
@@ -60,7 +66,7 @@ class MainViewModel @Inject constructor(
                 todayDurationSeconds = usageMap[appItem.packageName] ?: 0
             )
         }
-        
+
         MonitorStatusGroup(
             incompleteApps = statusList.filter { !it.isCompleted },
             completedApps = statusList.filter { it.isCompleted }
@@ -70,12 +76,6 @@ class MainViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = MonitorStatusGroup()
     )
-
-    /**
-     * 今日使用时长映射（包名 -> 秒数）
-     */
-    private val _todayUsageMap = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val todayUsageMap: StateFlow<Map<String, Int>> = _todayUsageMap.asStateFlow()
 
     /**
      * 通知时间
@@ -112,7 +112,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 刷新应用使用统计
-     * 
+     *
      * 从UsageStatsManager获取最新的使用数据，并更新到数据库和UI。
      */
     fun refreshUsageStats() {
@@ -121,7 +121,7 @@ class MainViewModel @Inject constructor(
             try {
                 // 获取所有被监控的应用
                 val monitoredApps = repository.getMonitoredApps()
-                
+
                 if (monitoredApps.isEmpty()) {
                     _todayUsageMap.value = emptyMap()
                     _isLoading.value = false
@@ -131,7 +131,7 @@ class MainViewModel @Inject constructor(
                 // 批量获取使用时长
                 val packageNames = monitoredApps.map { it.packageName }
                 val usageMap = usageStatsUseCase.getAppsUsageDuration(packageNames)
-                
+
                 // 更新数据库记录
                 val today = getTodayDate()
                 val records = monitoredApps.map { app ->
@@ -142,10 +142,10 @@ class MainViewModel @Inject constructor(
                     )
                 }
                 repository.updateUsageRecords(records)
-                
+
                 // 更新UI状态
                 _todayUsageMap.value = usageMap
-                
+
                 Log.d(TAG, "刷新使用统计完成: ${usageMap.size}个应用")
             } catch (e: Exception) {
                 Log.e(TAG, "刷新使用统计失败", e)
@@ -167,7 +167,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 设置通知时间
-     * 
+     *
      * @param time 通知时间（格式：HH:mm）
      */
     fun setNotificationTime(time: String) {
@@ -180,7 +180,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 加载系统已安装的应用列表
-     * 
+     *
      * 用于应用选择界面，获取所有可启动的应用。
      */
     fun loadInstalledApps() {
@@ -191,13 +191,13 @@ class MainViewModel @Inject constructor(
                 val intent = android.content.Intent(android.content.Intent.ACTION_MAIN, null).apply {
                     addCategory(android.content.Intent.CATEGORY_LAUNCHER)
                 }
-                
+
                 val resolveInfoList = packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-                
+
                 // 获取已监控的应用包名
                 val monitoredApps = repository.getMonitoredApps()
                 val monitoredPackageNames = monitoredApps.map { it.packageName }.toSet()
-                
+
                 val appList = resolveInfoList
                     .map { resolveInfo ->
                         val appInfo = resolveInfo.activityInfo.applicationInfo
@@ -209,7 +209,7 @@ class MainViewModel @Inject constructor(
                     }
                     .distinctBy { it.packageName }
                     .sortedBy { it.appName.lowercase() }
-                
+
                 _installedApps.value = appList
                 Log.d(TAG, "加载已安装应用: ${appList.size}个")
             } catch (e: Exception) {
@@ -223,7 +223,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 添加应用到监控列表
-     * 
+     *
      * @param packageName 应用包名
      * @param appName 应用名称
      */
@@ -243,7 +243,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 批量添加应用到监控列表
-     * 
+     *
      * @param apps 应用列表
      */
     fun addAppsToMonitor(apps: List<AppItem>) {
@@ -255,7 +255,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 从监控列表移除应用
-     * 
+     *
      * @param packageName 应用包名
      */
     fun removeAppFromMonitor(packageName: String) {
@@ -267,7 +267,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 更新应用的时长阈值
-     * 
+     *
      * @param packageName 应用包名
      * @param thresholdSeconds 时长阈值（秒）
      */
@@ -287,7 +287,7 @@ class MainViewModel @Inject constructor(
 
     /**
      * 检查应用今日是否已打开
-     * 
+     *
      * @param packageName 应用包名
      * @return 是否已打开
      */

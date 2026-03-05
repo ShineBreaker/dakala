@@ -3,6 +3,7 @@ package com.dakala.app.ui
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,15 +32,15 @@ import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * 主Activity
- * 
+ *
  * 应用的主界面，显示被监控应用的打卡状态。
- * 
+ *
  * 主要功能：
  * 1. 显示已选应用列表，分为"未完成"和"已完成"两个区域
  * 2. 提供设置监控应用的入口
  * 3. 提供设置通知时间的入口
  * 4. 刷新应用使用统计
- * 
+ *
  * 权限处理：
  * - 启动时检查PACKAGE_USAGE_STATS权限
  * - 未授权时引导用户到系统设置开启
@@ -50,7 +51,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
         setContent {
             DakalaTheme {
                 MainScreen(
@@ -65,7 +66,7 @@ class MainActivity : ComponentActivity() {
 
 /**
  * 主界面Composable
- * 
+ *
  * @param onNavigateToAppSelection 导航到应用选择界面的回调
  * @param viewModel MainViewModel
  */
@@ -79,13 +80,13 @@ fun MainScreen(
     val monitorStatusGroup by viewModel.monitorStatusGroup.collectAsState()
     val notificationTime by viewModel.notificationTime.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    
+
     // 权限检查状态
     var hasPermission by remember { mutableStateOf(false) }
-    
+
     // 时间选择对话框状态
     var showTimePicker by remember { mutableStateOf(false) }
-    
+
     // 权限请求启动器
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -188,7 +189,7 @@ fun MainScreen(
                             )
                         }
                     }
-                    
+
                     // 已完成区域
                     if (monitorStatusGroup.hasCompletedApps) {
                         item {
@@ -228,7 +229,7 @@ fun MainScreen(
 
 /**
  * 打开指定应用
- * 
+ *
  * @param context 上下文
  * @param packageName 应用包名
  */
@@ -242,6 +243,3 @@ private fun openApp(context: android.content.Context, packageName: String) {
         // 应用无法打开
     }
 }
-
-// 需要导入的rememberLauncherForActivityResult
-import androidx.activity.result.rememberLauncherForActivityResult

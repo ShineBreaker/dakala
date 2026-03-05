@@ -16,19 +16,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dakala.app.data.local.entity.AppItem
+import com.dakala.app.ui.components.drawableToBitmap
 import com.dakala.app.ui.theme.DakalaTheme
 import com.dakala.app.ui.viewmodel.AppSelectionViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * 应用选择Activity
- * 
+ *
  * 用于选择要监控的应用。
- * 
+ *
  * 主要功能：
  * 1. 显示系统已安装的应用列表
  * 2. 支持搜索过滤
@@ -41,7 +43,7 @@ class AppSelectionActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
         setContent {
             DakalaTheme {
                 AppSelectionScreen(
@@ -54,7 +56,7 @@ class AppSelectionActivity : ComponentActivity() {
 
 /**
  * 应用选择界面Composable
- * 
+ *
  * @param onBack 返回回调
  * @param viewModel AppSelectionViewModel
  */
@@ -69,7 +71,7 @@ fun AppSelectionScreen(
     val selectedPackages by viewModel.selectedPackages.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    
+
     // 搜索状态
     var isSearching by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf(searchQuery) }
@@ -82,7 +84,7 @@ fun AppSelectionScreen(
                     title = {
                         OutlinedTextField(
                             value = searchText,
-                            onValueChange = { 
+                            onValueChange = {
                                 searchText = it
                                 viewModel.setSearchQuery(it)
                             },
@@ -92,7 +94,7 @@ fun AppSelectionScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { 
+                        IconButton(onClick = {
                             isSearching = false
                             searchText = ""
                             viewModel.setSearchQuery("")
@@ -187,7 +189,7 @@ fun AppSelectionScreen(
 
 /**
  * 应用选择项组件
- * 
+ *
  * @param app 应用信息
  * @param isSelected 是否已选中
  * @param onClick 点击回调
@@ -199,7 +201,7 @@ fun AppSelectionItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    
+
     // 获取应用图标
     val appIcon = remember(app.packageName) {
         try {
@@ -227,9 +229,9 @@ fun AppSelectionItem(
                 modifier = Modifier.size(40.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         // 应用名称
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -242,7 +244,7 @@ fun AppSelectionItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        
+
         // 选中状态
         if (isSelected) {
             Icon(
@@ -254,7 +256,3 @@ fun AppSelectionItem(
         }
     }
 }
-
-// 需要导入的asImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import com.dakala.app.ui.components.drawableToBitmap

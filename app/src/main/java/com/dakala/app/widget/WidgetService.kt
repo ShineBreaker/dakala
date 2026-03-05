@@ -4,19 +4,25 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.util.Log
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.dakala.app.R
+import com.dakala.app.data.local.database.AppUsageDatabase
+import com.dakala.app.domain.usecase.UsageStatsUseCase
+import com.dakala.app.ui.util.PermissionHelper
+import kotlinx.coroutines.runBlocking
 
 /**
  * 小部件列表服务
- * 
+ *
  * 为小部件的ListView提供数据。
  * 使用RemoteViewsService实现，支持在桌面小部件中显示列表。
  */
 class WidgetService : RemoteViewsService() {
-    
+
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
         return WidgetRemoteViewsFactory(applicationContext, intent)
     }
@@ -24,8 +30,9 @@ class WidgetService : RemoteViewsService() {
 
 /**
  * 小部件列表视图工厂
- * 
+ *
  * 负责创建和管理小部件列表中的每一项视图。
+ * 直接从数据库查询数据，避免 Intent 数据传递问题。
  */
 class WidgetRemoteViewsFactory(
     private val context: Context,
@@ -48,10 +55,12 @@ class WidgetRemoteViewsFactory(
     }
 
     override fun onDataSetChanged() {
-        // 从Intent中获取应用列表
-        @Suppress("DEPRECATION")
-        apps = intent.getParcelableArrayListExtra("apps") ?: emptyList()
-        Log.d(TAG, "onDataSetChanged: ${apps.size} apps")
+        // 直接从数据库查询数据，而不是从 Intent 获取
+        Log.d(TAG, "onDataSetChanged: 开始查询数据")
+        apps = runBlocking {
+            getIncompleteApps()
+        }
+        Log.d(TAG, "onDataSetChanged: 查询到 ${apps.size} 个应用")
     }
 
     override fun onDestroy() {
@@ -115,6 +124,42 @@ class WidgetRemoteViewsFactory(
     override fun hasStableIds(): Boolean = false
 
     /**
+     * 获取未完成打卡的应用列表
+     */
+    private suspend fun getIncompleteApps(): List<UsageWidgetProvider.AppParcelable> {
+        // 检查权限
+        if (!PermissionHelper.checkUsageStatsPermission(context)) {
+            Log.w(TAG, "无使用统计权限")
+            return emptyList()
+        }
+
+        val database = AppUsageDatabase.getInstance(context)
+        val appItemDao = database.appItemDao()
+        val usageStatsUseCase = UsageStatsUseCase(context)
+
+        // 获取所有被监控的应用
+        val monitoredApps = appItemDao.getMonitoredApps()
+        Log.d(TAG, "获取到 ${monitoredApps.size} 个监控应用")
+
+        // 筛选未完成的应用
+        return monitoredApps.mapNotNull { app ->
+            val duration = usageStatsUseCase.getAppUsageDuration(app.packageName)
+            val isCompleted = duration >= app.durationThreshold
+
+            if (!isCompleted) {
+                UsageWidgetProvider.AppParcelable(
+                    packageName = app.packageName,
+                    appName = app.appName,
+                    durationSeconds = duration,
+                    isOpened = duration > 0
+                )
+            } else {
+                null
+            }
+        }
+    }
+
+    /**
      * 将Drawable转换为Bitmap
      */
     private fun drawableToBitmap(drawable: android.graphics.drawable.Drawable): Bitmap {
@@ -135,7 +180,3 @@ class WidgetRemoteViewsFactory(
         return bitmap
     }
 }
-
-// 需要导入的Bitmap和Canvas
-import android.graphics.Bitmap
-import android.graphics.Canvas

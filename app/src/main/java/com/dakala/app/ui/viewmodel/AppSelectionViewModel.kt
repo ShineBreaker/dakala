@@ -11,17 +11,20 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
  * 应用选择界面ViewModel
- * 
+ *
  * 负责管理应用选择界面的数据和业务逻辑，包括：
  * 1. 加载系统已安装的应用列表
  * 2. 管理应用的选中状态
  * 3. 保存用户选择的应用到数据库
- * 
+ *
  * @property application 应用上下文
  * @property repository 数据仓库
  */
@@ -91,17 +94,17 @@ class AppSelectionViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val packageManager = getApplication<Application>().packageManager
-                
+
                 // 获取所有可启动的应用
                 val intent = android.content.Intent(android.content.Intent.ACTION_MAIN, null).apply {
                     addCategory(android.content.Intent.CATEGORY_LAUNCHER)
                 }
                 val resolveInfoList = packageManager.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_ALL)
-                
+
                 // 获取已监控的应用
                 val monitoredApps = repository.getMonitoredApps()
                 val monitoredPackageNames = monitoredApps.map { it.packageName }.toSet()
-                
+
                 // 构建应用列表
                 val appList = resolveInfoList
                     .map { resolveInfo ->
@@ -114,10 +117,10 @@ class AppSelectionViewModel @Inject constructor(
                     }
                     .distinctBy { it.packageName }
                     .sortedBy { it.appName.lowercase() }
-                
+
                 _installedApps.value = appList
                 _selectedPackages.value = monitoredPackageNames
-                
+
                 Log.d(TAG, "加载已安装应用: ${appList.size}个, 已选中: ${monitoredPackageNames.size}个")
             } catch (e: Exception) {
                 Log.e(TAG, "加载已安装应用失败", e)
@@ -129,7 +132,7 @@ class AppSelectionViewModel @Inject constructor(
 
     /**
      * 切换应用的选中状态
-     * 
+     *
      * @param packageName 应用包名
      */
     fun toggleAppSelection(packageName: String) {
@@ -158,7 +161,7 @@ class AppSelectionViewModel @Inject constructor(
 
     /**
      * 设置搜索关键词
-     * 
+     *
      * @param query 搜索关键词
      */
     fun setSearchQuery(query: String) {
@@ -174,10 +177,10 @@ class AppSelectionViewModel @Inject constructor(
             try {
                 val selectedPackageNames = _selectedPackages.value
                 val allApps = _installedApps.value
-                
+
                 // 获取默认时长阈值
                 val defaultThreshold = repository.getDefaultDurationThreshold()
-                
+
                 // 构建要保存的应用列表
                 val appsToSave = allApps
                     .filter { it.packageName in selectedPackageNames }
@@ -187,25 +190,25 @@ class AppSelectionViewModel @Inject constructor(
                             durationThreshold = defaultThreshold
                         )
                     }
-                
+
                 // 获取当前已监控的应用
                 val currentMonitoredApps = repository.getMonitoredApps()
                 val currentPackageNames = currentMonitoredApps.map { it.packageName }.toSet()
-                
+
                 // 删除不再监控的应用
                 for (app in currentMonitoredApps) {
                     if (app.packageName !in selectedPackageNames) {
                         repository.removeAppFromMonitor(app.packageName)
                     }
                 }
-                
+
                 // 添加新监控的应用
                 for (app in appsToSave) {
                     if (app.packageName !in currentPackageNames) {
                         repository.addAppToMonitor(app)
                     }
                 }
-                
+
                 Log.d(TAG, "保存选择的应用: ${appsToSave.size}个")
             } catch (e: Exception) {
                 Log.e(TAG, "保存选择的应用失败", e)
@@ -215,8 +218,3 @@ class AppSelectionViewModel @Inject constructor(
         }
     }
 }
-
-// 需要导入的combine函数
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn

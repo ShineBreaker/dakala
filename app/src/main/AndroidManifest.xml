@@ -31,6 +31,18 @@
         android:theme="@style/Theme.Dakala"
         tools:targetApi="35">
 
+        <!-- 禁用 WorkManager 自动初始化，使用 Hilt 自定义配置 -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <!-- 主Activity -->
         <activity
             android:name=".ui.MainActivity"
@@ -59,6 +71,12 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/usage_widget_info" />
         </receiver>
+
+        <!-- 小部件列表服务 -->
+        <service
+            android:name=".widget.WidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
         <!-- 开机启动接收器 -->
         <receiver

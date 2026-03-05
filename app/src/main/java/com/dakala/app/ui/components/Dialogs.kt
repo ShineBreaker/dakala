@@ -1,25 +1,33 @@
 package com.dakala.app.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material3.rememberTimePickerState
 
 /**
  * 时间选择对话框组件
- * 
+ *
  * 用于选择通知时间。
- * 
+ *
  * @param initialHour 初始小时
  * @param initialMinute 初始分钟
  * @param onTimeSelected 时间选择回调
  * @param onDismiss 取消回调
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickerDialog(
     initialHour: Int = 22,
@@ -52,16 +60,16 @@ fun TimePickerDialog(
                     text = "选择通知时间",
                     style = MaterialTheme.typography.titleLarge
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 TimePicker(
                     state = state,
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // 按钮
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -87,13 +95,14 @@ fun TimePickerDialog(
 
 /**
  * 时长阈值设置对话框组件
- * 
+ *
  * 用于设置应用的时长阈值。
- * 
+ *
  * @param currentThreshold 当前阈值（秒）
  * @param onThresholdSelected 阈值选择回调
  * @param onDismiss 取消回调
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DurationThresholdDialog(
     currentThreshold: Int = 600,
@@ -113,24 +122,24 @@ fun DurationThresholdDialog(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // 分钟输入
                 OutlinedTextField(
                     value = minutes.toString(),
-                    onValueChange = { 
+                    onValueChange = {
                         minutes = it.toIntOrNull() ?: 0
                     },
                     label = { Text("分钟") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 // 秒数输入
                 OutlinedTextField(
                     value = seconds.toString(),
-                    onValueChange = { 
+                    onValueChange = {
                         seconds = (it.toIntOrNull() ?: 0).coerceIn(0, 59)
                     },
                     label = { Text("秒") },
@@ -156,12 +165,3 @@ fun DurationThresholdDialog(
         }
     )
 }
-
-// 需要导入的remember和mutableStateOf
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
