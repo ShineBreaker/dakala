@@ -12,6 +12,10 @@
 
 **打卡啦 (Dakala)** 专为解决这一痛点而生。它的核心原理是**监测应用使用时长**：如果您在当天尚未打开目标应用（或打开时长未达标），它会在您设定的时间发出智能提醒，确保您不再错过任何每日奖励。
 
+## 📱项目截图
+![Screenshot_2026-03-06-16-07-50-010_com dakala app_1](https://github.com/user-attachments/assets/bacacee8-29e4-4e0a-9c1a-ac538e53ece5)
+![Screenshot_2026-03-06-16-08-01-064_com dakala app_1](https://github.com/user-attachments/assets/e636bbe6-1d2b-4f9a-8c4e-2b4e66979f87)
+
 ## 🛠️ 技术栈与开发流程
 
 本项目采用了高效的 AI 辅助开发流程：
