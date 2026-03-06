@@ -163,6 +163,17 @@ class UsageWidgetProvider : AppWidgetProvider() {
     ) {
         val views = RemoteViews(context.packageName, R.layout.widget_usage)
 
+        // 设置点击空白区域跳转到本应用
+        val mainIntent = Intent(context, com.dakala.app.ui.MainActivity::class.java)
+        val mainPendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            mainIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_title, mainPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_empty, mainPendingIntent)
+
         if (incompleteApps.isEmpty()) {
             // 所有应用都已完成
             views.setViewVisibility(R.id.widget_list, android.view.View.GONE)
@@ -172,6 +183,18 @@ class UsageWidgetProvider : AppWidgetProvider() {
             // 显示未完成的应用列表
             views.setViewVisibility(R.id.widget_list, android.view.View.VISIBLE)
             views.setViewVisibility(R.id.widget_empty, android.view.View.GONE)
+
+            // 设置列表项点击模板 - 用于配合 setOnClickFillInIntent
+            val appClickIntent = Intent(context, UsageWidgetProvider::class.java).apply {
+                action = ACTION_APP_CLICKED
+            }
+            val appClickPendingIntent = PendingIntent.getBroadcast(
+                context,
+                appWidgetId,
+                appClickIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setPendingIntentTemplate(R.id.widget_list, appClickPendingIntent)
 
             // 设置列表适配器 - WidgetService 会直接查询数据库
             val intent = Intent(context, WidgetService::class.java)

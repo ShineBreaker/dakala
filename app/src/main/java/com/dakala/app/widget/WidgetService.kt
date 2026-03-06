@@ -103,14 +103,11 @@ class WidgetRemoteViewsFactory(
             Log.e(TAG, "获取应用图标失败: ${app.packageName}", e)
         }
 
-        // 设置点击事件
+        // 设置整个列表项的点击事件 - 跳转到对应应用
         val fillInIntent = Intent().apply {
-            action = UsageWidgetProvider.ACTION_APP_CLICKED
             putExtra(UsageWidgetProvider.EXTRA_PACKAGE_NAME, app.packageName)
         }
-        views.setOnClickFillInIntent(R.id.app_icon, fillInIntent)
-        views.setOnClickFillInIntent(R.id.app_name, fillInIntent)
-        views.setOnClickFillInIntent(R.id.app_status, fillInIntent)
+        views.setOnClickFillInIntent(R.id.widget_item_root, fillInIntent)
 
         return views
     }
