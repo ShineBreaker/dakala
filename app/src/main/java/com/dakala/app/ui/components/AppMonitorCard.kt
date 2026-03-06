@@ -85,7 +85,8 @@ fun AppMonitorCard(
                 DakalaColors.getIncompleteBackground()
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = null
     ) {
         Row(
             modifier = Modifier
