@@ -33,6 +33,7 @@
     <string name="widget_title">打卡状态</string>
     <string name="widget_no_data">暂无数据</string>
     <string name="widget_all_completed">今日目标已全部完成！</string>
+    <string name="widget_refresh">刷新</string>
 
     <!-- 应用选择 -->
     <string name="select_apps_title">选择要监控的应用</string>

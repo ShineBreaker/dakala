@@ -29,12 +29,15 @@ import kotlinx.coroutines.launch
  * 功能特点：
  * 1. 显示未打开和时长不足的应用
  * 2. 点击应用项可直接打开应用
- * 3. 定期自动刷新（每30分钟）
- * 4. 支持手动刷新
+ * 3. 定期自动刷新（通过WorkManager，每15分钟）
+ * 4. 支持手动刷新按钮
+ * 5. 屏幕解锁时自动刷新
  *
  * 更新机制：
  * - 系统定期调用onUpdate刷新小部件
- * - 应用使用状态变化时可主动调用updateWidget刷新
+ * - WorkManager定期刷新（更可靠）
+ * - 屏幕解锁时刷新
+ * - 手动点击刷新按钮
  */
 class UsageWidgetProvider : AppWidgetProvider() {
 
@@ -42,6 +45,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
         private const val TAG = "UsageWidgetProvider"
 
         const val ACTION_APP_CLICKED = "com.dakala.app.ACTION_APP_CLICKED"
+        const val ACTION_REFRESH = "com.dakala.app.ACTION_REFRESH_WIDGET"
         const val EXTRA_PACKAGE_NAME = "package_name"
 
         /**
@@ -88,6 +92,21 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
                 if (!packageName.isNullOrEmpty()) {
                     openApp(context, packageName)
+                }
+            }
+            ACTION_REFRESH -> {
+                // 处理手动刷新事件
+                Log.d(TAG, "onReceive: 手动刷新小部件")
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val componentName = ComponentName(context, UsageWidgetProvider::class.java)
+                val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
+                
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        updateAllWidgets(context, appWidgetManager, appWidgetIds)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "手动刷新小部件失败", e)
+                    }
                 }
             }
         }
@@ -163,7 +182,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
     ) {
         val views = RemoteViews(context.packageName, R.layout.widget_usage)
 
-        // 设置点击空白区域跳转到本应用
+        // 设置点击标题跳转到本应用
         val mainIntent = Intent(context, com.dakala.app.ui.MainActivity::class.java)
         val mainPendingIntent = PendingIntent.getActivity(
             context,
@@ -173,6 +192,18 @@ class UsageWidgetProvider : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.widget_title, mainPendingIntent)
         views.setOnClickPendingIntent(R.id.widget_empty, mainPendingIntent)
+
+        // 设置刷新按钮点击事件
+        val refreshIntent = Intent(context, UsageWidgetProvider::class.java).apply {
+            action = ACTION_REFRESH
+        }
+        val refreshPendingIntent = PendingIntent.getBroadcast(
+            context,
+            appWidgetId,
+            refreshIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.btn_refresh, refreshPendingIntent)
 
         if (incompleteApps.isEmpty()) {
             // 所有应用都已完成
