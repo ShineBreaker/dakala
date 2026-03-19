@@ -44,9 +44,9 @@ Exec failed, error: 2 (No such file or directory)
 
 当前仓库中的关键配置可以在这些文件看到：
 
-- [app/build.gradle.kts](/home/brokenshine/Documents/Project/Repositories/dakala/app/build.gradle.kts)
-- [gradlew](/home/brokenshine/Documents/Project/Repositories/dakala/gradlew)
-- [tools/aapt2/aapt2](/home/brokenshine/Documents/Project/Repositories/dakala/tools/aapt2/aapt2)
+- [app/build.gradle.kts](./app/build.gradle.kts)
+- [gradlew](./gradlew)
+- [tools/aapt2/aapt2](./tools/aapt2/aapt2)
 
 ## 3. 准备 Guix 基础环境
 
@@ -85,7 +85,7 @@ openjdk version "25.x.x"
 ```
 
 如果 `java` 已经在 `PATH` 里，通常不必额外设置 `JAVA_HOME`。  
-这个仓库的 [gradlew](/home/brokenshine/Documents/Project/Repositories/dakala/gradlew) 优先使用 `JAVA_HOME`，否则回退到 `PATH` 中的 `java`。
+这个仓库的 [gradlew](./gradlew) 优先使用 `JAVA_HOME`，否则回退到 `PATH` 中的 `java`。
 
 如果你确实要手工指定：
 
@@ -134,7 +134,7 @@ $HOME/Programs/Android/SDK
 
 常见有两种方式：
 
-1. 用 Android Studio 的 SDK Manager 安装  
+1. 用 Android Studio 的 SDK Manager 安装
 2. 用 Google 的 command-line tools 里的 `sdkmanager` 安装
 
 如果你用 `sdkmanager`，大致命令形式如下：
@@ -205,9 +205,9 @@ export ANDROID_SDK_ROOT="$HOME/Programs/Android/SDK"
 
 当前仓库已经添加了一个项目内的 `aapt2` 包装器：
 
-- [tools/aapt2/aapt2](/home/brokenshine/Documents/Project/Repositories/dakala/tools/aapt2/aapt2)
+- [tools/aapt2/aapt2](./tools/aapt2/aapt2)
 
-同时 [gradlew](/home/brokenshine/Documents/Project/Repositories/dakala/gradlew) 会自动把它注入到 Gradle：
+同时 [gradlew](./gradlew) 会自动把它注入到 Gradle：
 
 ```text
 android.aapt2FromMavenOverride=<project>/tools/aapt2/aapt2
@@ -300,7 +300,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ### 11.1 `AAPT2 ... Daemon startup failed`
 
-先确认你已经使用的是当前仓库的最新版 [gradlew](/home/brokenshine/Documents/Project/Repositories/dakala/gradlew) 和 [tools/aapt2/aapt2](/home/brokenshine/Documents/Project/Repositories/dakala/tools/aapt2/aapt2)。
+先确认你已经使用的是当前仓库的最新版 [gradlew](./gradlew) 和 [tools/aapt2/aapt2](./tools/aapt2/aapt2)。
 
 再确认 SDK 里确实有：
 
