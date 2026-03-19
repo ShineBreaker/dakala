@@ -66,3 +66,45 @@ data class AppSetting(
         const val KEY_DEFAULT_DURATION_THRESHOLD = "default_duration_threshold"
     }
 }
+
+/**
+ * 自定义打卡项实体类
+ *
+ * 用于存储用户自定义的打卡项目。
+ * 每个记录代表一个自定义打卡项，包含图标和名称。
+ *
+ * @property id 主键，自动生成
+ * @property name 打卡项名称
+ * @property iconType 图标类型（emoji 或 image）
+ * @property iconData 图标数据（emoji字符或图片URI字符串）
+ * @property createdAt 创建时间戳
+ * @property updatedAt 最后更新时间戳
+ */
+@Entity(tableName = "custom_check_items")
+data class CustomCheckItem(
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+    val name: String,
+    val iconType: String = "emoji", // "emoji" 或 "image"
+    val iconData: String = "✅", // emoji字符或图片URI
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+/**
+ * 自定义打卡记录实体类
+ *
+ * 用于存储每日的自定义打卡记录。
+ *
+ * @property itemId 自定义打卡项ID
+ * @property date 日期（格式：yyyyMMdd）
+ * @property isCompleted 是否已完成
+ * @property completedAt 完成时间戳
+ */
+@Entity(tableName = "custom_check_records", primaryKeys = ["itemId", "date"])
+data class CustomCheckRecord(
+    val itemId: Int,
+    val date: Int,
+    val isCompleted: Boolean = false,
+    val completedAt: Long? = null
+)

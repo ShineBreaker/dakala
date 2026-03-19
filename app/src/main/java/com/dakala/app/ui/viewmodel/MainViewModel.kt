@@ -7,8 +7,11 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dakala.app.data.local.entity.AppItem
+import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.CustomCheckStatus
+import com.dakala.app.domain.model.CustomCheckStatusGroup
 import com.dakala.app.domain.model.MonitorStatusGroup
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -334,5 +337,89 @@ class MainViewModel @Inject constructor(
         return calendar.get(java.util.Calendar.YEAR) * 10000 +
                 (calendar.get(java.util.Calendar.MONTH) + 1) * 100 +
                 calendar.get(java.util.Calendar.DAY_OF_MONTH)
+    }
+
+    // ==================== 自定义打卡相关 ====================
+
+    /**
+     * 自定义打卡状态分组
+     */
+    val customCheckStatusGroup: StateFlow<CustomCheckStatusGroup> = combine(
+        repository.getCustomCheckItemsFlow(),
+        repository.getTodayCustomCheckRecordsFlow()
+    ) { items, records ->
+        val completedItemIds = records.filter { it.isCompleted }.map { it.itemId }.toSet()
+
+        val statusList = items.map { item ->
+            CustomCheckStatus(
+                item = item,
+                isCompleted = item.id in completedItemIds
+            )
+        }
+
+        CustomCheckStatusGroup(
+            incompleteItems = statusList.filter { !it.isCompleted },
+            completedItems = statusList.filter { it.isCompleted }
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = CustomCheckStatusGroup()
+    )
+
+    /**
+     * 添加自定义打卡项
+     *
+     * @param name 名称
+     * @param iconType 图标类型
+     * @param iconData 图标数据
+     */
+    fun addCustomCheckItem(name: String, iconType: String, iconData: String) {
+        viewModelScope.launch {
+            val item = CustomCheckItem(
+                name = name,
+                iconType = iconType,
+                iconData = iconData
+            )
+            repository.addCustomCheckItem(item)
+            Log.d(TAG, "添加自定义打卡项: $name")
+        }
+    }
+
+    /**
+     * 更新自定义打卡项
+     *
+     * @param item 打卡项
+     */
+    fun updateCustomCheckItem(item: CustomCheckItem) {
+        viewModelScope.launch {
+            repository.updateCustomCheckItem(item)
+            Log.d(TAG, "更新自定义打卡项: ${item.id}")
+        }
+    }
+
+    /**
+     * 删除自定义打卡项
+     *
+     * @param id 打卡项ID
+     */
+    fun deleteCustomCheckItem(id: Int) {
+        viewModelScope.launch {
+            repository.deleteCustomCheckItem(id)
+            Log.d(TAG, "删除自定义打卡项: $id")
+        }
+    }
+
+    /**
+     * 切换自定义打卡状态
+     *
+     * @param itemId 打卡项ID
+     * @param isCompleted 是否完成
+     */
+    fun toggleCustomCheckStatus(itemId: Int, isCompleted: Boolean) {
+        viewModelScope.launch {
+            repository.toggleCustomCheckStatus(itemId, isCompleted)
+            Log.d(TAG, "切换自定义打卡状态: itemId=$itemId, isCompleted=$isCompleted")
+        }
     }
 }

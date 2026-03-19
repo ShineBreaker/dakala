@@ -1,6 +1,7 @@
 package com.dakala.app.domain.model
 
 import com.dakala.app.data.local.entity.AppItem
+import com.dakala.app.data.local.entity.CustomCheckItem
 
 /**
  * 应用监控状态UI模型
@@ -134,6 +135,72 @@ data class MonitorStatusGroup(
     val completionRate: Float
         get() = if (totalApps > 0) {
             completedCount.toFloat() / totalApps
+        } else {
+            0f
+        }
+}
+
+/**
+ * 自定义打卡状态UI模型
+ *
+ * 用于在UI层展示自定义打卡项的状态。
+ *
+ * @property item 自定义打卡项
+ * @property isCompleted 今日是否已完成
+ */
+data class CustomCheckStatus(
+    val item: CustomCheckItem,
+    val isCompleted: Boolean = false
+)
+
+/**
+ * 自定义打卡状态分组
+ *
+ * 将自定义打卡项按完成状态分组，便于UI展示。
+ *
+ * @property incompleteItems 未完成的打卡项列表
+ * @property completedItems 已完成的打卡项列表
+ */
+data class CustomCheckStatusGroup(
+    val incompleteItems: List<CustomCheckStatus> = emptyList(),
+    val completedItems: List<CustomCheckStatus> = emptyList()
+) {
+    /**
+     * 是否有未完成的打卡项
+     */
+    val hasIncompleteItems: Boolean
+        get() = incompleteItems.isNotEmpty()
+
+    /**
+     * 是否有已完成的打卡项
+     */
+    val hasCompletedItems: Boolean
+        get() = completedItems.isNotEmpty()
+
+    /**
+     * 是否为空（没有任何打卡项）
+     */
+    val isEmpty: Boolean
+        get() = incompleteItems.isEmpty() && completedItems.isEmpty()
+
+    /**
+     * 总打卡项数
+     */
+    val totalItems: Int
+        get() = incompleteItems.size + completedItems.size
+
+    /**
+     * 已完成打卡项数
+     */
+    val completedCount: Int
+        get() = completedItems.size
+
+    /**
+     * 完成率（0-100）
+     */
+    val completionRate: Float
+        get() = if (totalItems > 0) {
+            completedCount.toFloat() / totalItems
         } else {
             0f
         }

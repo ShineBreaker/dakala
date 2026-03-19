@@ -4,6 +4,8 @@ import android.content.Context
 import com.dakala.app.data.local.dao.AppItemDao
 import com.dakala.app.data.local.dao.AppSettingDao
 import com.dakala.app.data.local.dao.UsageRecordDao
+import com.dakala.app.data.local.dao.CustomCheckItemDao
+import com.dakala.app.data.local.dao.CustomCheckRecordDao
 import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.domain.usecase.UsageStatsUseCase
@@ -62,6 +64,24 @@ object DataModule {
     }
 
     /**
+     * 提供自定义打卡项DAO
+     */
+    @Provides
+    @Singleton
+    fun provideCustomCheckItemDao(database: AppUsageDatabase): CustomCheckItemDao {
+        return database.customCheckItemDao()
+    }
+
+    /**
+     * 提供自定义打卡记录DAO
+     */
+    @Provides
+    @Singleton
+    fun provideCustomCheckRecordDao(database: AppUsageDatabase): CustomCheckRecordDao {
+        return database.customCheckRecordDao()
+    }
+
+    /**
      * 提供应用使用统计仓库
      */
     @Provides
@@ -69,9 +89,11 @@ object DataModule {
     fun provideAppUsageRepository(
         appItemDao: AppItemDao,
         usageRecordDao: UsageRecordDao,
-        appSettingDao: AppSettingDao
+        appSettingDao: AppSettingDao,
+        customCheckItemDao: CustomCheckItemDao,
+        customCheckRecordDao: CustomCheckRecordDao
     ): AppUsageRepository {
-        return AppUsageRepository(appItemDao, usageRecordDao, appSettingDao)
+        return AppUsageRepository(appItemDao, usageRecordDao, appSettingDao, customCheckItemDao, customCheckRecordDao)
     }
 }
 

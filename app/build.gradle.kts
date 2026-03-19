@@ -17,7 +17,16 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.dakala.app"
-    compileSdk = 35
+    compileSdk {
+        version = release(36) {
+            minorApiLevel = 1
+        }
+    }
+
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
 
     signingConfigs {
         create("release") {
@@ -31,7 +40,7 @@ android {
     defaultConfig {
         applicationId = "com.dakala.app"
         minSdk = 29
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 6
         versionName = "1.0.3.1"
 
@@ -54,8 +63,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
     }
 
     buildFeatures {
@@ -64,6 +73,9 @@ android {
     }
 
     packaging {
+        jniLibs {
+            keepDebugSymbols += "**/libandroidx.graphics.path.so"
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }

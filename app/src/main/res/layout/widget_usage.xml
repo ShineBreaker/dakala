@@ -24,11 +24,36 @@
             android:textSize="14sp"
             android:textStyle="bold" />
 
+        <!-- Tab 切换按钮 -->
+        <TextView
+            android:id="@+id/btn_tab_app"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/tab_background"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="@string/tab_app_check"
+            android:textColor="@color/on_surface"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/btn_tab_custom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/tab_background"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="@string/tab_custom_check"
+            android:textColor="@color/on_surface"
+            android:textSize="11sp" />
+
         <!-- 刷新按钮 -->
         <ImageButton
             android:id="@+id/btn_refresh"
             android:layout_width="28dp"
             android:layout_height="28dp"
+            android:layout_marginStart="8dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/widget_refresh"
             android:padding="4dp"

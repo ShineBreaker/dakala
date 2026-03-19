@@ -1,6 +1,7 @@
 package com.dakala.app.ui.components
 
 import android.content.Intent
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.ColorMatrix
@@ -223,7 +224,7 @@ private fun convertToGrayscale(drawable: Drawable): Drawable {
     paint.colorFilter = ColorMatrixColorFilter(colorMatrix)
     canvas.drawBitmap(bitmap, 0f, 0f, paint)
 
-    return BitmapDrawable(grayBitmap)
+    return BitmapDrawable(Resources.getSystem(), grayBitmap)
 }
 
 /**

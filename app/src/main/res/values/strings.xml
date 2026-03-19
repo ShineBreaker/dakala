@@ -9,6 +9,20 @@
     <string name="completed_section">已完成</string>
     <string name="no_monitored_apps">暂无监控应用，点击上方按钮添加</string>
 
+    <!-- Tab 标签 -->
+    <string name="tab_app_check">应用打卡</string>
+    <string name="tab_custom_check">自定义打卡</string>
+
+    <!-- 自定义打卡 -->
+    <string name="add_custom_check">添加自定义打卡</string>
+    <string name="edit_custom_check">编辑自定义打卡</string>
+    <string name="custom_check_name">名称</string>
+    <string name="custom_check_icon">图标</string>
+    <string name="delete_custom_check">删除</string>
+    <string name="confirm_delete">确认删除</string>
+    <string name="confirm_delete_message">确定要删除「%s」吗？</string>
+    <string name="no_custom_check_items">暂无自定义打卡项\n点击下方按钮添加</string>
+
     <!-- 应用状态 -->
     <string name="status_opened">已打开</string>
     <string name="status_not_opened">未打开</string>

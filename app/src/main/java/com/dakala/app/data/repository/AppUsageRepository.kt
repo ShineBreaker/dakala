@@ -4,31 +4,40 @@ import android.util.Log
 import com.dakala.app.data.local.dao.AppItemDao
 import com.dakala.app.data.local.dao.UsageRecordDao
 import com.dakala.app.data.local.dao.AppSettingDao
+import com.dakala.app.data.local.dao.CustomCheckItemDao
+import com.dakala.app.data.local.dao.CustomCheckRecordDao
 import com.dakala.app.data.local.entity.AppItem
 import com.dakala.app.data.local.entity.UsageRecord
 import com.dakala.app.data.local.entity.AppSetting
+import com.dakala.app.data.local.entity.CustomCheckItem
+import com.dakala.app.data.local.entity.CustomCheckRecord
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
 
 /**
  * 应用使用统计仓库
- * 
+ *
  * 数据层的核心类，负责协调数据源（数据库）和业务逻辑层之间的数据交互。
  * 封装了所有数据访问逻辑，为ViewModel提供统一的数据接口。
- * 
+ *
  * 主要职责：
  * 1. 管理应用监控项的增删改查
  * 2. 管理使用记录的存储和查询
  * 3. 管理应用设置的读写
- * 
+ * 4. 管理自定义打卡项和记录
+ *
  * @property appItemDao 应用监控项DAO
  * @property usageRecordDao 使用记录DAO
  * @property appSettingDao 应用设置DAO
+ * @property customCheckItemDao 自定义打卡项DAO
+ * @property customCheckRecordDao 自定义打卡记录DAO
  */
 class AppUsageRepository(
     private val appItemDao: AppItemDao,
     private val usageRecordDao: UsageRecordDao,
-    private val appSettingDao: AppSettingDao
+    private val appSettingDao: AppSettingDao,
+    private val customCheckItemDao: CustomCheckItemDao,
+    private val customCheckRecordDao: CustomCheckRecordDao
 ) {
     companion object {
         private const val TAG = "AppUsageRepository"
@@ -252,5 +261,82 @@ class AppUsageRepository(
      */
     fun getNotificationTimeFlow(): Flow<String?> {
         return appSettingDao.getSettingFlow(AppSetting.KEY_NOTIFICATION_TIME)
+    }
+
+    // ==================== 自定义打卡项相关操作 ====================
+
+    /**
+     * 获取所有自定义打卡项（响应式）
+     */
+    fun getCustomCheckItemsFlow(): Flow<List<CustomCheckItem>> {
+        return customCheckItemDao.getAllItemsFlow()
+    }
+
+    /**
+     * 获取所有自定义打卡项
+     */
+    suspend fun getCustomCheckItems(): List<CustomCheckItem> {
+        return customCheckItemDao.getAllItems()
+    }
+
+    /**
+     * 添加自定义打卡项
+     */
+    suspend fun addCustomCheckItem(item: CustomCheckItem): Long {
+        Log.d(TAG, "添加自定义打卡项: ${item.name}")
+        return customCheckItemDao.insertItem(item)
+    }
+
+    /**
+     * 更新自定义打卡项
+     */
+    suspend fun updateCustomCheckItem(item: CustomCheckItem) {
+        Log.d(TAG, "更新自定义打卡项: ${item.id}")
+        customCheckItemDao.updateItem(item)
+    }
+
+    /**
+     * 删除自定义打卡项
+     */
+    suspend fun deleteCustomCheckItem(id: Int) {
+        Log.d(TAG, "删除自定义打卡项: $id")
+        customCheckItemDao.deleteById(id)
+    }
+
+    /**
+     * 获取今日自定义打卡记录（响应式）
+     */
+    fun getTodayCustomCheckRecordsFlow(): Flow<List<CustomCheckRecord>> {
+        return customCheckRecordDao.getRecordsByDateFlow(getTodayDate())
+    }
+
+    /**
+     * 获取今日自定义打卡记录
+     */
+    suspend fun getTodayCustomCheckRecords(): List<CustomCheckRecord> {
+        return customCheckRecordDao.getRecordsByDate(getTodayDate())
+    }
+
+    /**
+     * 切换自定义打卡状态
+     */
+    suspend fun toggleCustomCheckStatus(itemId: Int, isCompleted: Boolean) {
+        val today = getTodayDate()
+        val record = CustomCheckRecord(
+            itemId = itemId,
+            date = today,
+            isCompleted = isCompleted,
+            completedAt = if (isCompleted) System.currentTimeMillis() else null
+        )
+        Log.d(TAG, "切换自定义打卡状态: itemId=$itemId, isCompleted=$isCompleted")
+        customCheckRecordDao.insertOrUpdateRecord(record)
+    }
+
+    /**
+     * 检查今日是否已完成自定义打卡
+     */
+    suspend fun isCustomCheckCompletedToday(itemId: Int): Boolean {
+        val record = customCheckRecordDao.getRecord(itemId, getTodayDate())
+        return record?.isCompleted ?: false
     }
 }

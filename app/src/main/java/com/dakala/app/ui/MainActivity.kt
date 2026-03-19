@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dakala.app.R
+import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.ui.components.*
 import com.dakala.app.ui.theme.DakalaTheme
@@ -35,13 +36,14 @@ import dagger.hilt.android.AndroidEntryPoint
 /**
  * 主Activity
  *
- * 应用的主界面，显示被监控应用的打卡状态。
+ * 应用的主界面，显示被监控应用的打卡状态和自定义打卡项。
  *
  * 主要功能：
  * 1. 显示已选应用列表，分为"未完成"和"已完成"两个区域
- * 2. 提供设置监控应用的入口
- * 3. 提供设置通知时间的入口
- * 4. 刷新应用使用统计
+ * 2. 显示自定义打卡项列表
+ * 3. 提供设置监控应用的入口
+ * 4. 提供设置通知时间的入口
+ * 5. 刷新应用使用统计
  *
  * 权限处理：
  * - 启动时检查PACKAGE_USAGE_STATS权限
@@ -67,6 +69,14 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
+ * Tab 类型枚举
+ */
+enum class CheckTab(val title: String) {
+    APP_CHECK("应用打卡"),
+    CUSTOM_CHECK("自定义打卡")
+}
+
+/**
  * 主界面Composable
  *
  * @param onNavigateToAppSelection 导航到应用选择界面的回调
@@ -80,8 +90,12 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val monitorStatusGroup by viewModel.monitorStatusGroup.collectAsState()
+    val customCheckStatusGroup by viewModel.customCheckStatusGroup.collectAsState()
     val notificationTime by viewModel.notificationTime.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+
+    // 当前选中的Tab
+    var selectedTab by remember { mutableStateOf(CheckTab.APP_CHECK) }
 
     // 权限检查状态
     var hasPermission by remember { mutableStateOf(false) }
@@ -99,6 +113,12 @@ fun MainScreen(
     // 默认时长设置对话框状态
     var showDefaultDurationDialog by remember { mutableStateOf(false) }
     val defaultDurationThreshold by viewModel.defaultDurationThreshold.collectAsState()
+
+    // 自定义打卡对话框状态
+    var showAddCustomCheckDialog by remember { mutableStateOf(false) }
+    var editingItem by remember { mutableStateOf<CustomCheckItem?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var deletingItem by remember { mutableStateOf<CustomCheckItem?>(null) }
 
     // 权限请求启动器
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -130,63 +150,93 @@ fun MainScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(stringResource(R.string.app_name))
-                },
-                actions = {
-                    // 刷新按钮
-                    IconButton(onClick = { viewModel.refreshUsageStats() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "刷新"
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(stringResource(R.string.app_name))
+                    },
+                    actions = {
+                        // 刷新按钮
+                        IconButton(onClick = { viewModel.refreshUsageStats() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "刷新"
+                            )
+                        }
+                        // 设置菜单
+                        Box {
+                            IconButton(onClick = { showSettingsMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "设置"
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showSettingsMenu,
+                                onDismissRequest = { showSettingsMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("设置通知时间") },
+                                    onClick = {
+                                        showSettingsMenu = false
+                                        showTimePicker = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Notifications, contentDescription = null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("设置默认时长") },
+                                    onClick = {
+                                        showSettingsMenu = false
+                                        showDefaultDurationDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Settings, contentDescription = null)
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+                // Tab Row
+                TabRow(
+                    selectedTabIndex = selectedTab.ordinal,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
+                    CheckTab.values().forEach { tab ->
+                        Tab(
+                            selected = selectedTab == tab,
+                            onClick = { selectedTab = tab },
+                            text = { Text(tab.title) }
                         )
                     }
-                    // 设置菜单
-                    Box {
-                        IconButton(onClick = { showSettingsMenu = true }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "设置"
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showSettingsMenu,
-                            onDismissRequest = { showSettingsMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("设置通知时间") },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    showTimePicker = true
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Notifications, contentDescription = null)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("设置默认时长") },
-                                onClick = {
-                                    showSettingsMenu = false
-                                    showDefaultDurationDialog = true
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Settings, contentDescription = null)
-                                }
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
+                }
+            }
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onNavigateToAppSelection,
+                onClick = {
+                    if (selectedTab == CheckTab.APP_CHECK) {
+                        onNavigateToAppSelection()
+                    } else {
+                        showAddCustomCheckDialog = true
+                    }
+                },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text(stringResource(R.string.settings_monitor_apps)) },
+                text = {
+                    Text(
+                        if (selectedTab == CheckTab.APP_CHECK) {
+                            stringResource(R.string.settings_monitor_apps)
+                        } else {
+                            "添加自定义打卡"
+                        }
+                    )
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
@@ -197,65 +247,88 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            } else if (monitorStatusGroup.isEmpty) {
-                EmptyState(
-                    message = stringResource(R.string.no_monitored_apps),
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 未完成区域
-                    if (monitorStatusGroup.hasIncompleteApps) {
-                        item {
-                            SectionHeader(
-                                title = stringResource(R.string.incomplete_section),
-                                count = monitorStatusGroup.incompleteApps.size
-                            )
-                        }
-                        items(monitorStatusGroup.incompleteApps) { status ->
-                            AppMonitorCard(
-                                status = status,
-                                onAppClick = { packageName ->
-                                    openApp(context, packageName)
-                                },
-                                onSettingsClick = { packageName ->
-                                    selectedAppForDuration = monitorStatusGroup.incompleteApps.find { it.appItem.packageName == packageName }
-                                    showDurationDialog = true
+            when (selectedTab) {
+                CheckTab.APP_CHECK -> {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else if (monitorStatusGroup.isEmpty) {
+                        EmptyState(
+                            message = stringResource(R.string.no_monitored_apps),
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // 未完成区域
+                            if (monitorStatusGroup.hasIncompleteApps) {
+                                item {
+                                    SectionHeader(
+                                        title = stringResource(R.string.incomplete_section),
+                                        count = monitorStatusGroup.incompleteApps.size
+                                    )
                                 }
-                            )
-                        }
-                    }
+                                items(monitorStatusGroup.incompleteApps) { status ->
+                                    AppMonitorCard(
+                                        status = status,
+                                        onAppClick = { packageName ->
+                                            openApp(context, packageName)
+                                        },
+                                        onSettingsClick = { packageName ->
+                                            selectedAppForDuration = monitorStatusGroup.incompleteApps.find { it.appItem.packageName == packageName }
+                                            showDurationDialog = true
+                                        }
+                                    )
+                                }
+                            }
 
-                    // 已完成区域
-                    if (monitorStatusGroup.hasCompletedApps) {
-                        item {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            SectionHeader(
-                                title = stringResource(R.string.completed_section),
-                                count = monitorStatusGroup.completedApps.size
-                            )
-                        }
-                        items(monitorStatusGroup.completedApps) { status ->
-                            AppMonitorCard(
-                                status = status,
-                                onAppClick = { packageName ->
-                                    openApp(context, packageName)
-                                },
-                                onSettingsClick = { packageName ->
-                                    selectedAppForDuration = monitorStatusGroup.completedApps.find { it.appItem.packageName == packageName }
-                                    showDurationDialog = true
+                            // 已完成区域
+                            if (monitorStatusGroup.hasCompletedApps) {
+                                item {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    SectionHeader(
+                                        title = stringResource(R.string.completed_section),
+                                        count = monitorStatusGroup.completedApps.size
+                                    )
                                 }
-                            )
+                                items(monitorStatusGroup.completedApps) { status ->
+                                    AppMonitorCard(
+                                        status = status,
+                                        onAppClick = { packageName ->
+                                            openApp(context, packageName)
+                                        },
+                                        onSettingsClick = { packageName ->
+                                            selectedAppForDuration = monitorStatusGroup.completedApps.find { it.appItem.packageName == packageName }
+                                            showDurationDialog = true
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
+                }
+                CheckTab.CUSTOM_CHECK -> {
+                    CustomCheckList(
+                        statusGroup = customCheckStatusGroup,
+                        onCheckToggle = { itemId, isCompleted ->
+                            viewModel.toggleCustomCheckStatus(itemId, isCompleted)
+                        },
+                        onEdit = { item ->
+                            editingItem = item
+                        },
+                        onDelete = { itemId ->
+                            deletingItem = customCheckStatusGroup.incompleteItems
+                                .find { it.item.id == itemId }?.item
+                                ?: customCheckStatusGroup.completedItems
+                                    .find { it.item.id == itemId }?.item
+                            showDeleteConfirmDialog = true
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
         }
@@ -305,6 +378,47 @@ fun MainScreen(
             },
             onDismiss = {
                 showDefaultDurationDialog = false
+            }
+        )
+    }
+
+    // 添加自定义打卡对话框
+    if (showAddCustomCheckDialog) {
+        AddCustomCheckDialog(
+            onConfirm = { name, iconType, iconData ->
+                viewModel.addCustomCheckItem(name, iconType, iconData)
+                showAddCustomCheckDialog = false
+            },
+            onDismiss = { showAddCustomCheckDialog = false }
+        )
+    }
+
+    // 编辑自定义打卡对话框
+    if (editingItem != null) {
+        AddCustomCheckDialog(
+            item = editingItem,
+            onConfirm = { name, iconType, iconData ->
+                viewModel.updateCustomCheckItem(
+                    editingItem!!.copy(name = name, iconType = iconType, iconData = iconData)
+                )
+                editingItem = null
+            },
+            onDismiss = { editingItem = null }
+        )
+    }
+
+    // 删除确认对话框
+    if (showDeleteConfirmDialog && deletingItem != null) {
+        DeleteConfirmDialog(
+            itemName = deletingItem!!.name,
+            onConfirm = {
+                viewModel.deleteCustomCheckItem(deletingItem!!.id)
+                showDeleteConfirmDialog = false
+                deletingItem = null
+            },
+            onDismiss = {
+                showDeleteConfirmDialog = false
+                deletingItem = null
             }
         )
     }

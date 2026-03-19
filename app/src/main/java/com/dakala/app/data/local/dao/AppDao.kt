@@ -4,6 +4,8 @@ import androidx.room.*
 import com.dakala.app.data.local.entity.AppItem
 import com.dakala.app.data.local.entity.UsageRecord
 import com.dakala.app.data.local.entity.AppSetting
+import com.dakala.app.data.local.entity.CustomCheckItem
+import com.dakala.app.data.local.entity.CustomCheckRecord
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -168,4 +170,94 @@ interface AppSettingDao {
      */
     @Query("DELETE FROM app_settings WHERE key = :key")
     suspend fun deleteSetting(key: String)
+}
+
+/**
+ * 自定义打卡项数据访问对象
+ *
+ * 提供对custom_check_items表的CRUD操作。
+ */
+@Dao
+interface CustomCheckItemDao {
+
+    /**
+     * 插入一个自定义打卡项
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItem(item: CustomCheckItem): Long
+
+    /**
+     * 更新自定义打卡项
+     */
+    @Update
+    suspend fun updateItem(item: CustomCheckItem)
+
+    /**
+     * 删除自定义打卡项
+     */
+    @Delete
+    suspend fun deleteItem(item: CustomCheckItem)
+
+    /**
+     * 根据ID删除自定义打卡项
+     */
+    @Query("DELETE FROM custom_check_items WHERE id = :id")
+    suspend fun deleteById(id: Int)
+
+    /**
+     * 获取所有自定义打卡项
+     */
+    @Query("SELECT * FROM custom_check_items ORDER BY createdAt ASC")
+    suspend fun getAllItems(): List<CustomCheckItem>
+
+    /**
+     * 获取所有自定义打卡项（响应式）
+     */
+    @Query("SELECT * FROM custom_check_items ORDER BY createdAt ASC")
+    fun getAllItemsFlow(): Flow<List<CustomCheckItem>>
+
+    /**
+     * 根据ID获取自定义打卡项
+     */
+    @Query("SELECT * FROM custom_check_items WHERE id = :id LIMIT 1")
+    suspend fun getItemById(id: Int): CustomCheckItem?
+}
+
+/**
+ * 自定义打卡记录数据访问对象
+ *
+ * 提供对custom_check_records表的CRUD操作。
+ */
+@Dao
+interface CustomCheckRecordDao {
+
+    /**
+     * 插入或更新打卡记录
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateRecord(record: CustomCheckRecord)
+
+    /**
+     * 获取指定项在指定日期的打卡记录
+     */
+    @Query("SELECT * FROM custom_check_records WHERE itemId = :itemId AND date = :date LIMIT 1")
+    suspend fun getRecord(itemId: Int, date: Int): CustomCheckRecord?
+
+    /**
+     * 获取指定日期所有打卡记录
+     */
+    @Query("SELECT * FROM custom_check_records WHERE date = :date")
+    suspend fun getRecordsByDate(date: Int): List<CustomCheckRecord>
+
+    /**
+     * 获取指定日期所有打卡记录（响应式）
+     */
+    @Query("SELECT * FROM custom_check_records WHERE date = :date")
+    fun getRecordsByDateFlow(date: Int): Flow<List<CustomCheckRecord>>
+
+    /**
+     * 删除指定日期之前的记录（清理旧数据）
+     */
+    @Query("DELETE FROM custom_check_records WHERE date < :beforeDate")
+    suspend fun deleteOldRecords(beforeDate: Int)
 }

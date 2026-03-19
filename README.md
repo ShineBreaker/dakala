@@ -77,7 +77,7 @@ app/src/main/java/com/dakala/app/
 
 | 类别     | 技术                         |
 | -------- | ---------------------------- |
-| 语言     | Kotlin 2.1.0                 |
+| 语言     | Kotlin 2.3.10                |
 | UI       | Jetpack Compose + Material 3 |
 | 架构     | MVVM + Clean Architecture    |
 | 依赖注入 | Hilt                         |
@@ -88,33 +88,23 @@ app/src/main/java/com/dakala/app/
 ## 🔧 环境要求
 
 - **操作系统**：Linux（推荐 Ubuntu 22.04+ 或 Arch Linux）
-- **JDK**：OpenJDK 17+
-- **Android SDK**：API 29 (Android 10) ~ API 35 (Android 15)
+- **JDK**：OpenJDK 25
+- **Android SDK**：API 29 (Android 10) ~ API 36.1 (Android 16)
 - **Android Studio**：Ladybug (2024.2.1) 或更高版本（可选，用于调试）
+- **构建环境**：需要在 Linux 容器内执行，当前项目使用 `distrobox` 管理的 `archlinux` 容器
 
 ## 📦 编译指南
 
-### 1. 安装依赖
+### 1. 准备容器环境
 
 #### Arch Linux
 
 ```bash
-# 安装JDK 17
-sudo pacman -S jdk17-openjdk gradle
+# 进入构建容器
+distrobox enter archlinux
 
-# 设置JAVA_HOME
-archlinux-java set java-17-openjdk
-```
-
-#### Ubuntu/Debian
-
-```bash
-# 安装JDK 17
-sudo apt update
-sudo apt install openjdk-17-jdk gradle
-
-# 设置JAVA_HOME
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+# 安装 JDK 25 与 Android 构建常用工具
+sudo pacman -S jdk25-temurin
 ```
 
 ### 2. 克隆项目
@@ -127,14 +117,18 @@ cd /path/to/your/workspace
 ### 3. 编译项目
 
 ```bash
-cd dakala
+# 在宿主机项目目录执行，命令会进入 archlinux 容器后再构建
+distrobox enter archlinux -- bash -lc 'cd /run/host$PWD && ./gradlew assembleDebug'
 
-# 编译Debug版本
-gradle assembleDebug
-
-# 编译Release版本
-gradle assembleRelease
+# Release 构建
+distrobox enter archlinux -- bash -lc 'cd /run/host$PWD && ./gradlew assembleRelease'
 ```
+
+说明：
+
+- 请使用项目自带的 `./gradlew`，不要直接使用系统 `gradle`
+- `gradlew` 已处理容器中常见的 `JAVA_HOME` 与证书路径透传问题
+- 当前构建链路已验证可在 `archlinux` 容器内使用 JDK 25 编译通过
 
 编译完成后，APK文件位于：
 
@@ -203,7 +197,8 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ### 兼容性
 
 - **最低支持**：Android 10 (API 29)
-- **最高测试**：Android 16 (API 36)
+- **目标版本**：Android 16 (API 36.1)
+- **最高测试**：Android 16 (API 36.1)
 - **推荐设备**：Android 12 及以上
 
 ### 隐私声明
@@ -276,6 +271,99 @@ gradle ktlintCheck
 ```bash
 gradle clean
 ```
+
+## 📝 更新日志
+
+### v1.1.0 - 自定义打卡功能 (开发中)
+
+新增"自定义打卡"功能，支持用户创建自定义打卡项，可使用emoji或图片作为图标。
+
+#### 功能概述
+
+- **Tab切换**：主界面和小部件支持"应用打卡"和"自定义打卡"两个Tab切换
+- **自定义打卡项**：支持创建、编辑、删除自定义打卡项
+- **图标支持**：支持emoji和图片作为打卡项图标，图片自动应用圆角效果
+- **打卡记录**：记录每日打卡状态和完成时间
+
+#### 代码改动清单
+
+##### 数据层 (Data Layer)
+
+| 文件 | 改动说明 |
+| --- | --- |
+| `data/local/entity/AppItem.kt` | 新增 `CustomCheckItem` 实体（id, name, iconType, iconData）和 `CustomCheckRecord` 实体（itemId, date, isCompleted, completedAt） |
+| `data/local/dao/AppDao.kt` | 新增 `CustomCheckItemDao` 和 `CustomCheckRecordDao` 接口，提供CRUD操作 |
+| `data/local/database/AppUsageDatabase.kt` | 数据库版本从1升级到3，添加新实体，使用 `fallbackToDestructiveMigration` |
+| `data/repository/AppUsageRepository.kt` | 添加自定义打卡相关的Repository方法 |
+
+##### Domain层
+
+| 文件 | 改动说明 |
+| --- | --- |
+| `domain/model/AppMonitorStatus.kt` | 新增 `CustomCheckStatus` 和 `CustomCheckStatusGroup` UI模型 |
+
+##### 依赖注入 (DI)
+
+| 文件 | 改动说明 |
+| --- | --- |
+| `di/AppModule.kt` | 添加 `CustomCheckItemDao` 和 `CustomCheckRecordDao` 的依赖注入 |
+
+##### UI层
+
+| 文件 | 改动说明 |
+| --- | --- |
+| `ui/MainActivity.kt` | 添加Tab切换逻辑，支持"应用打卡"和"自定义打卡"两个页面 |
+| `ui/components/CustomCheckComponents.kt` | **新建** - 自定义打卡UI组件，包括打卡项列表、添加/编辑对话框、emoji输入和图片选择功能 |
+| `ui/viewmodel/MainViewModel.kt` | 添加自定义打卡相关的StateFlow和方法 |
+
+##### 小部件 (Widget)
+
+| 文件 | 改动说明 |
+| --- | --- |
+| `widget/UsageWidgetProvider.kt` | 添加Tab切换逻辑和自定义打卡列表显示支持 |
+| `widget/WidgetService.kt` | 新增 `CustomCheckRemoteViewsFactory` 用于自定义打卡列表渲染 |
+
+##### 资源文件
+
+| 文件 | 改动说明 |
+| --- | --- |
+| `res/layout/widget_usage.xml` | 添加Tab按钮（应用打卡/自定义打卡） |
+| `res/layout/widget_custom_check_item.xml` | **新建** - 自定义打卡项布局 |
+| `res/drawable/ic_check_outline.xml` | **新建** - 未完成状态图标（空心圆） |
+| `res/drawable/ic_check_filled.xml` | **新建** - 已完成状态图标（实心圆带勾） |
+| `res/drawable/tab_background.xml` | **新建** - Tab按钮背景选择器 |
+| `res/values/strings.xml` | 添加新字符串资源 |
+
+#### 数据库变更
+
+```kotlin
+// 新增表结构
+@Entity(tableName = "custom_check_items")
+data class CustomCheckItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val iconType: IconType,  // EMOJI or IMAGE
+    val iconData: String     // emoji字符或图片URI
+)
+
+@Entity(
+    tableName = "custom_check_records",
+    primaryKeys = ["itemId", "date"]
+)
+data class CustomCheckRecord(
+    val itemId: Long,
+    val date: LocalDate,
+    val isCompleted: Boolean,
+    val completedAt: LocalDateTime?
+)
+```
+
+#### 已修复问题
+
+- [x] 小部件载入自定义打卡列表问题 - 已修复，添加了 `notifyAppWidgetViewDataChanged()` 调用以确保 ListView 正确刷新数据
+- [x] MIUI小部件兼容性问题 - 已修复，移除了 `setSelected()` 方法调用（MIUI的自定义TextView不支持此方法在RemoteViews中使用）
+
+---
 
 ## 📄 许可证
 
