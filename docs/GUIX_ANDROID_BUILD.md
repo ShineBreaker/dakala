@@ -44,9 +44,9 @@ Exec failed, error: 2 (No such file or directory)
 
 当前仓库中的关键配置可以在这些文件看到：
 
-- [app/build.gradle.kts](./app/build.gradle.kts)
-- [gradlew](./gradlew)
-- [tools/aapt2/aapt2](./tools/aapt2/aapt2)
+- [app/build.gradle.kts](/app/build.gradle.kts)
+- [gradlew](/gradlew)
+- [tools/aapt2/aapt2](/tools/aapt2/aapt2)
 
 ## 3. 准备 Guix 基础环境
 
