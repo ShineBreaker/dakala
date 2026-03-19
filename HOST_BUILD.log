@@ -1,0 +1,16 @@
+2026-03-19
+
+Host build compatibility log
+
+- Problem: direct host builds failed in `:app:processDebugResources` because AGP's Maven-downloaded `aapt2` could not start on non-FHS Linux systems.
+- Symptom: `AAPT2 ... Daemon startup failed` with `Exec failed, error: 2 (No such file or directory)`.
+- Root cause: the downloaded `aapt2` binary expects `/lib64/ld-linux-x86-64.so.2`, which is absent on Guix/Nix-style hosts.
+- Fix applied:
+  - Added a project-local wrapper at `tools/aapt2/aapt2`.
+  - Updated `gradlew` to export `-Dorg.gradle.project.android.aapt2FromMavenOverride=<project>/tools/aapt2/aapt2`.
+  - The wrapper prefers the SDK's own `build-tools/*/aapt2` and, if direct execution fails, launches it through the host's glibc loader with a compatible library path.
+- Expected host prerequisites:
+  - JDK 25 available to `./gradlew`
+  - Android SDK installed and discoverable through `local.properties`, `ANDROID_HOME`, or `ANDROID_SDK_ROOT`
+  - Android SDK build-tools contains an `aapt2` binary (the current project has 36.1.0 installed)
+- Result target: `./gradlew assembleDebug` and `./gradlew assembleRelease` should work directly on the host without entering the container.

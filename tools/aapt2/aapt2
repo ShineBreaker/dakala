@@ -1,0 +1,114 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+PROJECT_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+
+read_sdk_dir_from_local_properties() {
+    local_properties="$PROJECT_ROOT/local.properties"
+    if [ ! -f "$local_properties" ] ; then
+        return 1
+    fi
+
+    sdk_dir=$(sed -n 's/^sdk\.dir=//p' "$local_properties" | tail -n 1)
+    if [ -z "$sdk_dir" ] ; then
+        return 1
+    fi
+
+    sdk_dir=$(printf '%s' "$sdk_dir" | sed 's#\\\\#\\#g; s#\\:#:#g; s#\\ # #g')
+    printf '%s\n' "$sdk_dir"
+}
+
+find_sdk_root() {
+    if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "${ANDROID_SDK_ROOT:-}" ] ; then
+        printf '%s\n' "$ANDROID_SDK_ROOT"
+        return 0
+    fi
+
+    if [ -n "${ANDROID_HOME:-}" ] && [ -d "${ANDROID_HOME:-}" ] ; then
+        printf '%s\n' "$ANDROID_HOME"
+        return 0
+    fi
+
+    read_sdk_dir_from_local_properties
+}
+
+find_aapt2() {
+    sdk_root=$1
+    newest_dir=
+
+    for build_tools_dir in "$sdk_root"/build-tools/* ; do
+        if [ -x "$build_tools_dir/aapt2" ] ; then
+            newest_dir=$build_tools_dir
+        fi
+    done
+
+    if [ -n "$newest_dir" ] ; then
+        printf '%s\n' "$newest_dir/aapt2"
+        return 0
+    fi
+
+    return 1
+}
+
+find_dynamic_linker() {
+    target_binary=$1
+
+    linker_path=$(ldd "$target_binary" 2>/dev/null | sed -n 's#.*=> \(/[^ ]*/ld-linux[^ ]*\) (.*#\1#p' | head -n 1)
+    if [ -n "$linker_path" ] && [ -x "$linker_path" ] ; then
+        printf '%s\n' "$linker_path"
+        return 0
+    fi
+
+    return 1
+}
+
+find_libgcc_dir() {
+    for candidate in \
+        /run/current-system/profile/lib/libgcc_s.so.1 \
+        /run/current-system/sw/lib/libgcc_s.so.1 \
+        /usr/lib/libgcc_s.so.1
+    do
+        if [ -e "$candidate" ] ; then
+            resolved=$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")
+            dirname "$resolved"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+sdk_root=$(find_sdk_root || true)
+if [ -z "$sdk_root" ] ; then
+    echo "tools/aapt2/aapt2: Android SDK not found. Set ANDROID_HOME/ANDROID_SDK_ROOT or local.properties sdk.dir." >&2
+    exit 1
+fi
+
+aapt2_binary=$(find_aapt2 "$sdk_root" || true)
+if [ -z "$aapt2_binary" ] ; then
+    echo "tools/aapt2/aapt2: No executable aapt2 found under $sdk_root/build-tools." >&2
+    exit 1
+fi
+
+if "$aapt2_binary" version >/dev/null 2>&1 ; then
+    exec "$aapt2_binary" "$@"
+fi
+
+dynamic_linker=$(find_dynamic_linker "$aapt2_binary" || true)
+if [ -z "$dynamic_linker" ] ; then
+    echo "tools/aapt2/aapt2: Unable to locate a compatible dynamic linker for $aapt2_binary." >&2
+    exit 1
+fi
+
+library_path=$(dirname "$dynamic_linker")
+libgcc_dir=$(find_libgcc_dir || true)
+if [ -n "$libgcc_dir" ] ; then
+    library_path="$libgcc_dir:$library_path"
+fi
+if [ -n "${LD_LIBRARY_PATH:-}" ] ; then
+    library_path="$library_path:$LD_LIBRARY_PATH"
+fi
+
+exec "$dynamic_linker" --library-path "$library_path" "$aapt2_binary" "$@"

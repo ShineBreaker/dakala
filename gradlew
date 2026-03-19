@@ -132,6 +132,16 @@ if [ -n "$SSL_CERT_DIR" ] && [ ! -d "$SSL_CERT_DIR" ] && [ -d /etc/ssl/certs ] ;
     export SSL_CERT_DIR
 fi
 
+# Prefer the project wrapper for AAPT2 so host builds can recover from non-FHS Linux layouts.
+if [ -x "$APP_HOME/tools/aapt2/aapt2" ] ; then
+    if [ -n "$GRADLE_OPTS" ] ; then
+        GRADLE_OPTS="$GRADLE_OPTS -Dorg.gradle.project.android.aapt2FromMavenOverride=$APP_HOME/tools/aapt2/aapt2"
+    else
+        GRADLE_OPTS="-Dorg.gradle.project.android.aapt2FromMavenOverride=$APP_HOME/tools/aapt2/aapt2"
+    fi
+    export GRADLE_OPTS
+fi
+
 # Prefer a local Java 25 installation when the inherited JAVA_HOME is invalid or absent.
 if [ -x /usr/lib/jvm/java-25-temurin/bin/java ] ; then
     if [ -z "$JAVA_HOME" ] || [ ! -x "$JAVA_HOME/bin/java" -a ! -x "$JAVA_HOME/jre/sh/java" ] ; then

@@ -35,7 +35,7 @@
 
 本项目采用了高效的 AI 辅助开发流程：
 
-- 🤖 **代码生成**：基于 **GLM-5** 和 **Qwen-Coder** 大模型生成核心逻辑。
+- 🤖 **代码生成**：基于 **GLM-5 (负责初版)** 、 **Claude Sonnet 4.5 (新增功能)** 和 **gpt-5.4 (修复构建)** 等模型生成核心逻辑。
 - ✍️ **编辑与验收**：使用 **Zed** 编辑器进行代码审查、微调及最终成果验收。
 
 ---
@@ -91,23 +91,63 @@ app/src/main/java/com/dakala/app/
 - **JDK**：OpenJDK 25
 - **Android SDK**：API 29 (Android 10) ~ API 36.1 (Android 16)
 - **Android Studio**：Ladybug (2024.2.1) 或更高版本（可选，用于调试）
-- **构建环境**：需要在 Linux 容器内执行，当前项目使用 `distrobox` 管理的 `archlinux` 容器
+- **构建环境**：支持直接在 Linux 宿主机构建；如需隔离环境，也可以继续使用 `distrobox` 容器
+
+## 📚 文档索引
+
+- `README.md`：项目简介、常规开发与构建说明
+- [GUIX_ANDROID_BUILD.md](./GUIX_ANDROID_BUILD.md)：在 Guix 上从零准备 Android 构建环境的完整教程
+- [HOST_BUILD.log](./HOST_BUILD.log)：本项目宿主机构建兼容修复记录
+- [CHANGELOG.md](./CHANGELOG.md)：版本更新日志
 
 ## 📦 编译指南
 
-### 1. 准备容器环境
+### 1. 准备 JDK 与 Android SDK
 
-#### Arch Linux
+先确认 Java 25 可用：
 
 ```bash
-# 进入构建容器
+java -version
+```
+
+然后确认 Android SDK 已安装，并且包含至少这些组件：
+
+- `platform-tools`
+- `build-tools/36.1.0`
+- `platforms/android-36.1`
+
+项目可以通过两种方式找到 SDK：
+
+- 根目录 `local.properties` 中的 `sdk.dir`
+- 环境变量 `ANDROID_HOME` / `ANDROID_SDK_ROOT`
+
+#### 直接在宿主机构建
+
+```bash
+# 推荐先检查 SDK 配置
+cat local.properties
+
+# 或者检查环境变量
+printf 'ANDROID_HOME=%s\nANDROID_SDK_ROOT=%s\n' "$ANDROID_HOME" "$ANDROID_SDK_ROOT"
+```
+
+说明：
+
+- `./gradlew` 现在会自动为宿主机构建启用项目内的 `aapt2` 兼容包装器，处理非 FHS Linux 上的动态链接问题
+- 只要本机有 JDK 25 和可用的 Android SDK，就可以直接在项目目录构建
+- Guix 用户建议直接阅读 [GUIX_ANDROID_BUILD.md](./GUIX_ANDROID_BUILD.md)
+
+#### 继续使用容器（可选）
+
+```bash
+# 进入容器
 distrobox enter archlinux
 
-# 安装 JDK 25 与 Android 构建常用工具
+# 安装 JDK 25
 sudo pacman -S jdk25-temurin
 ```
 
-### 2. 克隆项目
+### 2. 准备项目目录
 
 ```bash
 cd /path/to/your/workspace
@@ -117,18 +157,21 @@ cd /path/to/your/workspace
 ### 3. 编译项目
 
 ```bash
-# 在宿主机项目目录执行，命令会进入 archlinux 容器后再构建
-distrobox enter archlinux -- bash -lc 'cd /run/host$PWD && ./gradlew assembleDebug'
+# Debug 构建
+./gradlew assembleDebug --no-configuration-cache
 
 # Release 构建
-distrobox enter archlinux -- bash -lc 'cd /run/host$PWD && ./gradlew assembleRelease'
+./gradlew assembleRelease --no-configuration-cache
 ```
 
 说明：
 
 - 请使用项目自带的 `./gradlew`，不要直接使用系统 `gradle`
-- `gradlew` 已处理容器中常见的 `JAVA_HOME` 与证书路径透传问题
-- 当前构建链路已验证可在 `archlinux` 容器内使用 JDK 25 编译通过
+- `gradlew` 已处理容器中的 `JAVA_HOME`/证书路径问题，以及宿主机上的 `aapt2` 动态链接兼容问题
+- 当前构建链路已验证可在宿主机直接使用 JDK 25 编译，也可继续在 `archlinux` 容器内构建
+
+如果你只想确认工程能编译，优先跑 `assembleDebug`。  
+`assembleRelease` 还会依赖 release 签名配置。
 
 编译完成后，APK文件位于：
 
@@ -250,118 +293,27 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ```bash
 # 运行单元测试
-gradle test
+./gradlew test
 
 # 运行Android测试（需要连接设备）
-gradle connectedAndroidTest
+./gradlew connectedAndroidTest
 ```
 
 ### 代码检查
 
 ```bash
 # Lint检查
-gradle lint
+./gradlew lint
 
 # Kotlin代码风格检查
-gradle ktlintCheck
+./gradlew ktlintCheck
 ```
 
 ### 清理项目
 
 ```bash
-gradle clean
+./gradlew clean
 ```
-
-## 📝 更新日志
-
-### v1.1.0 - 自定义打卡功能 (开发中)
-
-新增"自定义打卡"功能，支持用户创建自定义打卡项，可使用emoji或图片作为图标。
-
-#### 功能概述
-
-- **Tab切换**：主界面和小部件支持"应用打卡"和"自定义打卡"两个Tab切换
-- **自定义打卡项**：支持创建、编辑、删除自定义打卡项
-- **图标支持**：支持emoji和图片作为打卡项图标，图片自动应用圆角效果
-- **打卡记录**：记录每日打卡状态和完成时间
-
-#### 代码改动清单
-
-##### 数据层 (Data Layer)
-
-| 文件 | 改动说明 |
-| --- | --- |
-| `data/local/entity/AppItem.kt` | 新增 `CustomCheckItem` 实体（id, name, iconType, iconData）和 `CustomCheckRecord` 实体（itemId, date, isCompleted, completedAt） |
-| `data/local/dao/AppDao.kt` | 新增 `CustomCheckItemDao` 和 `CustomCheckRecordDao` 接口，提供CRUD操作 |
-| `data/local/database/AppUsageDatabase.kt` | 数据库版本从1升级到3，添加新实体，使用 `fallbackToDestructiveMigration` |
-| `data/repository/AppUsageRepository.kt` | 添加自定义打卡相关的Repository方法 |
-
-##### Domain层
-
-| 文件 | 改动说明 |
-| --- | --- |
-| `domain/model/AppMonitorStatus.kt` | 新增 `CustomCheckStatus` 和 `CustomCheckStatusGroup` UI模型 |
-
-##### 依赖注入 (DI)
-
-| 文件 | 改动说明 |
-| --- | --- |
-| `di/AppModule.kt` | 添加 `CustomCheckItemDao` 和 `CustomCheckRecordDao` 的依赖注入 |
-
-##### UI层
-
-| 文件 | 改动说明 |
-| --- | --- |
-| `ui/MainActivity.kt` | 添加Tab切换逻辑，支持"应用打卡"和"自定义打卡"两个页面 |
-| `ui/components/CustomCheckComponents.kt` | **新建** - 自定义打卡UI组件，包括打卡项列表、添加/编辑对话框、emoji输入和图片选择功能 |
-| `ui/viewmodel/MainViewModel.kt` | 添加自定义打卡相关的StateFlow和方法 |
-
-##### 小部件 (Widget)
-
-| 文件 | 改动说明 |
-| --- | --- |
-| `widget/UsageWidgetProvider.kt` | 添加Tab切换逻辑和自定义打卡列表显示支持 |
-| `widget/WidgetService.kt` | 新增 `CustomCheckRemoteViewsFactory` 用于自定义打卡列表渲染 |
-
-##### 资源文件
-
-| 文件 | 改动说明 |
-| --- | --- |
-| `res/layout/widget_usage.xml` | 添加Tab按钮（应用打卡/自定义打卡） |
-| `res/layout/widget_custom_check_item.xml` | **新建** - 自定义打卡项布局 |
-| `res/drawable/ic_check_outline.xml` | **新建** - 未完成状态图标（空心圆） |
-| `res/drawable/ic_check_filled.xml` | **新建** - 已完成状态图标（实心圆带勾） |
-| `res/drawable/tab_background.xml` | **新建** - Tab按钮背景选择器 |
-| `res/values/strings.xml` | 添加新字符串资源 |
-
-#### 数据库变更
-
-```kotlin
-// 新增表结构
-@Entity(tableName = "custom_check_items")
-data class CustomCheckItem(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val name: String,
-    val iconType: IconType,  // EMOJI or IMAGE
-    val iconData: String     // emoji字符或图片URI
-)
-
-@Entity(
-    tableName = "custom_check_records",
-    primaryKeys = ["itemId", "date"]
-)
-data class CustomCheckRecord(
-    val itemId: Long,
-    val date: LocalDate,
-    val isCompleted: Boolean,
-    val completedAt: LocalDateTime?
-)
-```
-
-#### 已修复问题
-
-- [x] 小部件载入自定义打卡列表问题 - 已修复，添加了 `notifyAppWidgetViewDataChanged()` 调用以确保 ListView 正确刷新数据
-- [x] MIUI小部件兼容性问题 - 已修复，移除了 `setSelected()` 方法调用（MIUI的自定义TextView不支持此方法在RemoteViews中使用）
 
 ---
 
