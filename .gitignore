@@ -77,9 +77,6 @@ Thumbs.db
 # *.pem
 # *.key
 
-# Changelog (for release notes only)
-CHANGELOG.md
-
 # Kotlin
 *.kotlin_module
 
