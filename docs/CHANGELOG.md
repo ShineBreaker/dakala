@@ -5,6 +5,30 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.6] - 2026-04-20
+
+### 修复
+
+- **跨天使用时长不刷新**：修复主界面在跨天后仍显示前一天使用时长的问题，Activity onResume 时自动检测日期变更并刷新数据
+- **自定义打卡记录跨天不更新**：自定义打卡记录的日期查询改为响应式驱动，跨天后自动切换到当天记录
+
+### 改进
+
+- **Lifecycle API 升级**：将废弃的 `LocalLifecycleOwner` 替换为 `LifecycleResumeEffect`
+- **构建环境兼容性**：`aapt2` wrapper 增加 Guix store 路径搜索，解决 non-FHS 系统上找不到 dynamic linker 和 libgcc 的问题
+- **Maven 镜像配置**：添加阿里云 Maven 镜像，解决 `dl.google.com` 在部分网络环境下 TLS 握手失败的问题
+- **IDE 警告清理**：修复未使用 import、冗余限定符、`Enum.values()` → `Enum.entries`、`String.format` Locale 等警告
+
+### 技术细节
+
+- 更新 `MainViewModel.kt` - 添加日期变更检测（`checkDateAndRefresh`），`customCheckStatusGroup` 改用 `_currentDate.flatMapLatest` 驱动
+- 更新 `MainActivity.kt` - 使用 `LifecycleResumeEffect` 监听 onResume 事件
+- 更新 `AppUsageRepository.kt` - 新增 `getCustomCheckRecordsByDateFlow(date)` 方法
+- 更新 `settings.gradle.kts` - 添加阿里云 Maven 镜像仓库
+- 更新 `tools/aapt2/aapt2` - 增强 `find_dynamic_linker` 和 `find_libgcc_dir` 的 Guix 兼容性
+- 更新 `libs.versions.toml` - 添加 `lifecycle-runtime-compose` 依赖
+- 更新 `app/build.gradle.kts` - 添加 `lifecycle-runtime-compose` 依赖，版本升级至 1.0.6
+
 ## [1.0.5] - 2026-03-19
 
 ### 新增
@@ -65,3 +89,4 @@
 [1.0.3.1]: https://github.com/user/dakala/compare/v1.0.3...v1.0.3.1
 [1.0.3]: https://github.com/user/dakala/releases/tag/v1.0.3
 [1.0.5]: https://github.com/user/dakala/compare/v1.0.3.1...v1.0.5
+[1.0.6]: https://github.com/user/dakala/compare/v1.0.5...v1.0.6
