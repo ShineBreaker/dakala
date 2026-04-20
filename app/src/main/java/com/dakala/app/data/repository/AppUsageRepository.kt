@@ -311,6 +311,13 @@ class AppUsageRepository(
     }
 
     /**
+     * 获取指定日期自定义打卡记录（响应式）
+     */
+    fun getCustomCheckRecordsByDateFlow(date: Int): Flow<List<CustomCheckRecord>> {
+        return customCheckRecordDao.getRecordsByDateFlow(date)
+    }
+
+    /**
      * 获取今日自定义打卡记录
      */
     suspend fun getTodayCustomCheckRecords(): List<CustomCheckRecord> {

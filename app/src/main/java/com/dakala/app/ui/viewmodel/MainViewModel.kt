@@ -20,8 +20,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
 
 /**
@@ -37,6 +39,7 @@ import javax.inject.Inject
  * @property repository 数据仓库
  * @property usageStatsUseCase 使用统计用例
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MainViewModel @Inject constructor(
     application: Application,
@@ -44,17 +47,23 @@ class MainViewModel @Inject constructor(
     private val usageStatsUseCase: UsageStatsUseCase
 ) : AndroidViewModel(application) {
 
-    companion object {
-        private const val TAG = "MainViewModel"
-    }
-
     // ==================== UI状态 ====================
+
+    /**
+     * 当前追踪的日期（yyyyMMdd），用于检测跨天
+     */
+    private var lastRefreshDate: Int = getCurrentDate()
 
     /**
      * 今日使用时长映射（包名 -> 秒数）
      */
     private val _todayUsageMap = MutableStateFlow<Map<String, Int>>(emptyMap())
     val todayUsageMap: StateFlow<Map<String, Int>> = _todayUsageMap.asStateFlow()
+
+    /**
+     * 当前日期（响应式），用于驱动自定义打卡记录的日期查询
+     */
+    private val _currentDate = MutableStateFlow(getCurrentDate())
 
     /**
      * 监控状态分组（按完成状态分组）
@@ -116,6 +125,20 @@ class MainViewModel @Inject constructor(
         loadNotificationTime()
         loadDefaultDurationThreshold()
         refreshUsageStats()
+    }
+
+    /**
+     * 检测日期变更并刷新数据。
+     * 应在 Activity.onResume 时调用。
+     */
+    fun checkDateAndRefresh() {
+        val today = getCurrentDate()
+        if (today != lastRefreshDate) {
+            Log.d(TAG, "检测到日期变更: $lastRefreshDate -> $today")
+            lastRefreshDate = today
+            _currentDate.value = today
+            refreshUsageStats()
+        }
     }
 
     // ==================== 公共方法 ====================
@@ -329,14 +352,17 @@ class MainViewModel @Inject constructor(
 
     // ==================== 私有方法 ====================
 
-    /**
-     * 获取今日日期（格式：yyyyMMdd）
-     */
-    private fun getTodayDate(): Int {
-        val calendar = java.util.Calendar.getInstance()
-        return calendar.get(java.util.Calendar.YEAR) * 10000 +
-                (calendar.get(java.util.Calendar.MONTH) + 1) * 100 +
-                calendar.get(java.util.Calendar.DAY_OF_MONTH)
+    private fun getTodayDate(): Int = getCurrentDate()
+
+    companion object {
+        private const val TAG = "MainViewModel"
+
+        fun getCurrentDate(): Int {
+            val calendar = Calendar.getInstance()
+            return calendar.get(Calendar.YEAR) * 10000 +
+                    (calendar.get(Calendar.MONTH) + 1) * 100 +
+                    calendar.get(Calendar.DAY_OF_MONTH)
+        }
     }
 
     // ==================== 自定义打卡相关 ====================
@@ -346,7 +372,9 @@ class MainViewModel @Inject constructor(
      */
     val customCheckStatusGroup: StateFlow<CustomCheckStatusGroup> = combine(
         repository.getCustomCheckItemsFlow(),
-        repository.getTodayCustomCheckRecordsFlow()
+        _currentDate.flatMapLatest { date ->
+            repository.getCustomCheckRecordsByDateFlow(date)
+        }
     ) { items, records ->
         val completedItemIds = records.filter { it.isCompleted }.map { it.itemId }.toSet()
 
