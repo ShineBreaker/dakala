@@ -55,11 +55,30 @@ find_aapt2() {
 find_dynamic_linker() {
     target_binary=$1
 
-    linker_path=$(ldd "$target_binary" 2>/dev/null | sed -n 's#.*=> \(/[^ ]*/ld-linux[^ ]*\) (.*#\1#p' | head -n 1)
-    if [ -n "$linker_path" ] && [ -x "$linker_path" ] ; then
-        printf '%s\n' "$linker_path"
-        return 0
+    # Try ldd first (works on FHS systems)
+    if command -v ldd >/dev/null 2>&1 ; then
+        linker_path=$(ldd "$target_binary" 2>/dev/null | sed -n 's#.*=> \(/[^ ]*/ld-linux[^ ]*\) (.*#\1#p' | head -n 1)
+        if [ -n "$linker_path" ] && [ -x "$linker_path" ] ; then
+            printf '%s\n' "$linker_path"
+            return 0
+        fi
     fi
+
+    # Fallback: search /gnu/store for glibc ld-linux (Guix)
+    for linker in /gnu/store/*/lib/ld-linux-x86-64.so.2 ; do
+        if [ -x "$linker" ] ; then
+            printf '%s\n' "$linker"
+            return 0
+        fi
+    done
+
+    # Fallback: /run/current-system (NixOS)
+    for linker in /run/current-system/sw/lib/ld-linux-x86-64.so.2 ; do
+        if [ -x "$linker" ] ; then
+            printf '%s\n' "$linker"
+            return 0
+        fi
+    done
 
     return 1
 }
@@ -73,6 +92,14 @@ find_libgcc_dir() {
         if [ -e "$candidate" ] ; then
             resolved=$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")
             dirname "$resolved"
+            return 0
+        fi
+    done
+
+    # Fallback: search /gnu/store (Guix)
+    for candidate in /gnu/store/*/lib/libgcc_s.so.1 ; do
+        if [ -e "$candidate" ] ; then
+            dirname "$candidate"
             return 0
         fi
     done
