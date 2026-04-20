@@ -71,6 +71,7 @@ class AppUsageRepository(
      * 
      * @return 所有应用列表
      */
+    @Suppress("unused")
     suspend fun getAllApps(): List<AppItem> {
         return appItemDao.getAllApps()
     }
@@ -111,6 +112,7 @@ class AppUsageRepository(
      * @param packageName 应用包名
      * @param isMonitored 是否监控
      */
+    @Suppress("unused")
     suspend fun updateMonitoredStatus(packageName: String, isMonitored: Boolean) {
         Log.d(TAG, "更新监控状态: $packageName -> $isMonitored")
         appItemDao.updateMonitoredStatus(packageName, isMonitored)
@@ -133,6 +135,7 @@ class AppUsageRepository(
      * @param packageName 应用包名
      * @return 应用信息，不存在则返回null
      */
+    @Suppress("unused")
     suspend fun getAppByPackageName(packageName: String): AppItem? {
         return appItemDao.getAppByPackageName(packageName)
     }
@@ -159,6 +162,7 @@ class AppUsageRepository(
      * @param packageName 应用包名
      * @param durationSeconds 使用时长（秒）
      */
+    @Suppress("unused")
     suspend fun updateUsageRecord(packageName: String, durationSeconds: Int) {
         val today = getTodayDate()
         val record = UsageRecord(
@@ -187,6 +191,7 @@ class AppUsageRepository(
      * @param packageName 应用包名
      * @return 使用记录，不存在则返回null
      */
+    @Suppress("unused")
     suspend fun getTodayUsageRecord(packageName: String): UsageRecord? {
         return usageRecordDao.getRecord(packageName, getTodayDate())
     }
@@ -196,6 +201,7 @@ class AppUsageRepository(
      * 
      * @return 今日使用记录列表
      */
+    @Suppress("unused")
     suspend fun getTodayUsageRecords(): List<UsageRecord> {
         return usageRecordDao.getRecordsByDate(getTodayDate())
     }
@@ -203,6 +209,7 @@ class AppUsageRepository(
     /**
      * 清理旧的使用记录（保留最近7天）
      */
+    @Suppress("unused")
     suspend fun cleanOldRecords() {
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_MONTH, -7)
@@ -259,6 +266,7 @@ class AppUsageRepository(
      * 
      * @return 通知时间的Flow
      */
+    @Suppress("unused")
     fun getNotificationTimeFlow(): Flow<String?> {
         return appSettingDao.getSettingFlow(AppSetting.KEY_NOTIFICATION_TIME)
     }
@@ -275,6 +283,7 @@ class AppUsageRepository(
     /**
      * 获取所有自定义打卡项
      */
+    @Suppress("unused")
     suspend fun getCustomCheckItems(): List<CustomCheckItem> {
         return customCheckItemDao.getAllItems()
     }
@@ -306,6 +315,7 @@ class AppUsageRepository(
     /**
      * 获取今日自定义打卡记录（响应式）
      */
+    @Suppress("unused")
     fun getTodayCustomCheckRecordsFlow(): Flow<List<CustomCheckRecord>> {
         return customCheckRecordDao.getRecordsByDateFlow(getTodayDate())
     }
@@ -320,6 +330,7 @@ class AppUsageRepository(
     /**
      * 获取今日自定义打卡记录
      */
+    @Suppress("unused")
     suspend fun getTodayCustomCheckRecords(): List<CustomCheckRecord> {
         return customCheckRecordDao.getRecordsByDate(getTodayDate())
     }
@@ -342,6 +353,7 @@ class AppUsageRepository(
     /**
      * 检查今日是否已完成自定义打卡
      */
+    @Suppress("unused")
     suspend fun isCustomCheckCompletedToday(itemId: Int): Boolean {
         val record = customCheckRecordDao.getRecord(itemId, getTodayDate())
         return record?.isCompleted ?: false

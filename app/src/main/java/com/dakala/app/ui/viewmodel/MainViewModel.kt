@@ -1,7 +1,6 @@
 package com.dakala.app.ui.viewmodel
 
 import android.app.Application
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -58,6 +57,7 @@ class MainViewModel @Inject constructor(
      * 今日使用时长映射（包名 -> 秒数）
      */
     private val _todayUsageMap = MutableStateFlow<Map<String, Int>>(emptyMap())
+    @Suppress("unused")
     val todayUsageMap: StateFlow<Map<String, Int>> = _todayUsageMap.asStateFlow()
 
     /**
@@ -111,12 +111,14 @@ class MainViewModel @Inject constructor(
      * 错误信息
      */
     private val _errorMessage = MutableStateFlow<String?>(null)
+    @Suppress("unused")
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     /**
      * 系统已安装应用列表（用于应用选择界面）
      */
     private val _installedApps = MutableStateFlow<List<AppItem>>(emptyList())
+    @Suppress("unused")
     val installedApps: StateFlow<List<AppItem>> = _installedApps.asStateFlow()
 
     // ==================== 初始化 ====================
@@ -238,6 +240,7 @@ class MainViewModel @Inject constructor(
      *
      * 用于应用选择界面，获取所有可启动的应用。
      */
+    @Suppress("unused")
     fun loadInstalledApps() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -282,6 +285,7 @@ class MainViewModel @Inject constructor(
      * @param packageName 应用包名
      * @param appName 应用名称
      */
+    @Suppress("unused")
     fun addAppToMonitor(packageName: String, appName: String) {
         viewModelScope.launch {
             val defaultThreshold = repository.getDefaultDurationThreshold()
@@ -301,6 +305,7 @@ class MainViewModel @Inject constructor(
      *
      * @param apps 应用列表
      */
+    @Suppress("unused")
     fun addAppsToMonitor(apps: List<AppItem>) {
         viewModelScope.launch {
             repository.addAppsToMonitor(apps)
@@ -313,6 +318,7 @@ class MainViewModel @Inject constructor(
      *
      * @param packageName 应用包名
      */
+    @Suppress("unused")
     fun removeAppFromMonitor(packageName: String) {
         viewModelScope.launch {
             repository.removeAppFromMonitor(packageName)
@@ -336,6 +342,7 @@ class MainViewModel @Inject constructor(
     /**
      * 清除错误信息
      */
+    @Suppress("unused")
     fun clearErrorMessage() {
         _errorMessage.value = null
     }
@@ -346,6 +353,7 @@ class MainViewModel @Inject constructor(
      * @param packageName 应用包名
      * @return 是否已打开
      */
+    @Suppress("unused")
     fun isAppOpenedToday(packageName: String): Boolean {
         return (_todayUsageMap.value[packageName] ?: 0) > 0
     }

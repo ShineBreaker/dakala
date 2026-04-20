@@ -138,7 +138,7 @@ fun MainScreen(
         if (!hasPermission) {
             PermissionHelper.showPermissionGuide(context)
             permissionLauncher.launch(
-                android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
             )
         }
     }
@@ -215,7 +215,7 @@ fun MainScreen(
                     containerColor = MaterialTheme.colorScheme.background,
                     contentColor = MaterialTheme.colorScheme.primary
                 ) {
-                    CheckTab.values().forEach { tab ->
+                    CheckTab.entries.forEach { tab ->
                         Tab(
                             selected = selectedTab == tab,
                             onClick = { selectedTab = tab },
@@ -347,7 +347,7 @@ fun MainScreen(
             initialHour = hour,
             initialMinute = minute,
             onTimeSelected = { h, m ->
-                val timeString = String.format("%02d:%02d", h, m)
+                val timeString = String.format(java.util.Locale.US, "%02d:%02d", h, m)
                 viewModel.setNotificationTime(timeString)
             },
             onDismiss = { showTimePicker = false }
@@ -443,7 +443,7 @@ private fun openApp(context: android.content.Context, packageName: String) {
         if (intent != null) {
             context.startActivity(intent)
         }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         // 应用无法打开
     }
 }
