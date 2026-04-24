@@ -139,7 +139,7 @@ class MainViewModel @Inject constructor(
             Log.d(TAG, "检测到日期变更: $lastRefreshDate -> $today")
             lastRefreshDate = today
             _currentDate.value = today
-            refreshUsageStats()
+            refreshUsageStats(forceReset = true)
         }
     }
 
@@ -149,8 +149,10 @@ class MainViewModel @Inject constructor(
      * 刷新应用使用统计
      *
      * 从UsageStatsManager获取最新的使用数据，并更新到数据库和UI。
+     *
+     * @param forceReset 是否强制重置（跨天时使用，先清空旧数据再查询）
      */
-    fun refreshUsageStats() {
+    fun refreshUsageStats(forceReset: Boolean = false) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -161,6 +163,11 @@ class MainViewModel @Inject constructor(
                     _todayUsageMap.value = emptyMap()
                     _isLoading.value = false
                     return@launch
+                }
+
+                // 强制重置时先清空数据，确保 StateFlow 必然触发 UI 更新
+                if (forceReset) {
+                    _todayUsageMap.value = emptyMap()
                 }
 
                 // 批量获取使用时长
@@ -178,8 +185,8 @@ class MainViewModel @Inject constructor(
                 }
                 repository.updateUsageRecords(records)
 
-                // 更新UI状态
-                _todayUsageMap.value = usageMap
+                // 更新UI状态：创建新Map实例，即使内容相同也触发StateFlow
+                _todayUsageMap.value = usageMap.toMap()
 
                 Log.d(TAG, "刷新使用统计完成: ${usageMap.size}个应用")
             } catch (e: Exception) {

@@ -18,9 +18,10 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.dakala.app"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version =
+            release(36) {
+                minorApiLevel = 1
+            }
     }
 
     lint {
@@ -41,8 +42,8 @@ android {
         applicationId = "com.dakala.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.0.6"
+        versionCode = 9
+        versionName = "1.0.6.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

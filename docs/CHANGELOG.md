@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.6.1] - 2026-04-25
+
+### 修复
+
+- **使用时长跨日桶穿透**：修复 `INTERVAL_BEST` 模式下，周/月/年级别的跨日统计桶被误用为当日数据的问题。表现为未打开过的应用仍显示前一日甚至更早的使用时长，直到手动打开该应用后才恢复正常
+
+### 技术细节
+
+- 更新 `UsageStatsUseCase.kt` - `filterTodayStats()`、`getAllUsedAppsToday()`、`getAppsUsageDurationInRange()` 三个方法的桶过滤条件从"与目标范围有重叠即可"改为"桶必须完全落在查询范围内"，排除所有跨日大桶
+
 ## [1.0.6] - 2026-04-20
 
 ### 修复
@@ -89,4 +99,5 @@
 [1.0.3.1]: https://github.com/user/dakala/compare/v1.0.3...v1.0.3.1
 [1.0.3]: https://github.com/user/dakala/releases/tag/v1.0.3
 [1.0.5]: https://github.com/user/dakala/compare/v1.0.3.1...v1.0.5
+[1.0.6.1]: https://github.com/user/dakala/compare/v1.0.6...v1.0.6.1
 [1.0.6]: https://github.com/user/dakala/compare/v1.0.5...v1.0.6
