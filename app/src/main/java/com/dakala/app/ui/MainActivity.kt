@@ -32,6 +32,8 @@ import com.dakala.app.ui.components.*
 import com.dakala.app.ui.theme.DakalaTheme
 import com.dakala.app.ui.util.PermissionHelper
 import com.dakala.app.ui.viewmodel.MainViewModel
+import com.dakala.app.ui.viewmodel.TodoUiState
+import com.dakala.app.ui.viewmodel.TodoViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -74,7 +76,8 @@ class MainActivity : ComponentActivity() {
  */
 enum class CheckTab(val title: String) {
     APP_CHECK("应用打卡"),
-    CUSTOM_CHECK("自定义打卡")
+    CUSTOM_CHECK("自定义打卡"),
+    ORG_TODO("待办")
 }
 
 /**
@@ -87,13 +90,15 @@ enum class CheckTab(val title: String) {
 @Composable
 fun MainScreen(
     onNavigateToAppSelection: () -> Unit,
-    viewModel: MainViewModel = hiltViewModel()
+    viewModel: MainViewModel = hiltViewModel(),
+    todoViewModel: TodoViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val monitorStatusGroup by viewModel.monitorStatusGroup.collectAsState()
     val customCheckStatusGroup by viewModel.customCheckStatusGroup.collectAsState()
     val notificationTime by viewModel.notificationTime.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val todoUiState by todoViewModel.uiState.collectAsState()
 
     // 当前选中的Tab
     var selectedTab by remember { mutableStateOf(CheckTab.APP_CHECK) }
@@ -121,6 +126,26 @@ fun MainScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var deletingItem by remember { mutableStateOf<CustomCheckItem?>(null) }
 
+    // 待办对话框状态
+    var showAddTodoDialog by remember { mutableStateOf(false) }
+
+    // Org 文件选择器
+    val openOrgLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { todoViewModel.setOrgFile(it) }
+    }
+
+    // Org 文件新建器
+    val createOrgLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        uri?.let { todoViewModel.setOrgFile(it) }
+    }
+
+    val pickOrgFile: () -> Unit = { openOrgLauncher.launch(arrayOf("*/*")) }
+    val createOrgFile: () -> Unit = { createOrgLauncher.launch("todo.org") }
+
     // 权限请求启动器
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -143,10 +168,18 @@ fun MainScreen(
         }
     }
 
-    // 检测日期变更（跨天后自动刷新数据）
+    // 检测日期变更（跨天后自动刷新数据），同时刷新待办（捕获外部修改）
     LifecycleResumeEffect(Unit) {
         viewModel.checkDateAndRefresh()
+        todoViewModel.refresh()
         onPauseOrDispose { }
+    }
+
+    // 切换到待办 Tab 时刷新文件内容
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == CheckTab.ORG_TODO) {
+            todoViewModel.refresh()
+        }
     }
 
     // 解析通知时间
@@ -202,6 +235,16 @@ fun MainScreen(
                                         Icon(Icons.Default.Settings, contentDescription = null)
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.settings_select_org_file)) },
+                                    onClick = {
+                                        showSettingsMenu = false
+                                        pickOrgFile()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                    }
+                                )
                             }
                         }
                     },
@@ -228,19 +271,31 @@ fun MainScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {
-                    if (selectedTab == CheckTab.APP_CHECK) {
-                        onNavigateToAppSelection()
-                    } else {
-                        showAddCustomCheckDialog = true
+                    when (selectedTab) {
+                        CheckTab.APP_CHECK -> onNavigateToAppSelection()
+                        CheckTab.CUSTOM_CHECK -> showAddCustomCheckDialog = true
+                        CheckTab.ORG_TODO -> {
+                            if (todoUiState is TodoUiState.Ready) {
+                                showAddTodoDialog = true
+                            } else {
+                                pickOrgFile()
+                            }
+                        }
                     }
                 },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = {
                     Text(
-                        if (selectedTab == CheckTab.APP_CHECK) {
-                            stringResource(R.string.settings_monitor_apps)
-                        } else {
-                            "添加自定义打卡"
+                        when (selectedTab) {
+                            CheckTab.APP_CHECK -> stringResource(R.string.settings_monitor_apps)
+                            CheckTab.CUSTOM_CHECK -> stringResource(R.string.add_custom_check)
+                            CheckTab.ORG_TODO -> {
+                                if (todoUiState is TodoUiState.Ready) {
+                                    stringResource(R.string.todo_add)
+                                } else {
+                                    stringResource(R.string.todo_pick_file)
+                                }
+                            }
                         }
                     )
                 },
@@ -337,6 +392,44 @@ fun MainScreen(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+                CheckTab.ORG_TODO -> {
+                    when (val state = todoUiState) {
+                        TodoUiState.Loading -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                        TodoUiState.NoFile -> {
+                            TodoNoFileState(
+                                onPickFile = pickOrgFile,
+                                onCreateFile = createOrgFile,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                        is TodoUiState.Error -> {
+                            TodoErrorState(
+                                message = state.message,
+                                showPickFile = state.permissionError,
+                                onPickFile = pickOrgFile,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                        is TodoUiState.Ready -> {
+                            if (state.notes.isEmpty()) {
+                                EmptyState(
+                                    message = stringResource(R.string.todo_empty),
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
+                            } else {
+                                TodoList(
+                                    notes = state.notes,
+                                    onToggle = { note -> todoViewModel.toggleNote(note) },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -411,6 +504,17 @@ fun MainScreen(
                 editingItem = null
             },
             onDismiss = { editingItem = null }
+        )
+    }
+
+    // 添加待办对话框
+    if (showAddTodoDialog) {
+        AddTodoDialog(
+            onConfirm = { title ->
+                todoViewModel.addTodo(title)
+                showAddTodoDialog = false
+            },
+            onDismiss = { showAddTodoDialog = false }
         )
     }
 

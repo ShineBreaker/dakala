@@ -12,6 +12,7 @@
     <!-- Tab 标签 -->
     <string name="tab_app_check">应用打卡</string>
     <string name="tab_custom_check">自定义打卡</string>
+    <string name="tab_todo">待办</string>
 
     <!-- 自定义打卡 -->
     <string name="add_custom_check">添加自定义打卡</string>
@@ -43,11 +44,27 @@
     <string name="notification_channel_name">打卡提醒</string>
     <string name="notification_channel_description">定时提醒您完成每日应用打卡目标</string>
 
+    <!-- Org 待办 -->
+    <string name="settings_select_org_file">选择 Org 文件</string>
+    <string name="todo_add">添加待办</string>
+    <string name="todo_add_title">添加待办</string>
+    <string name="todo_title_label">标题</string>
+    <string name="todo_title_hint">例如：买东西</string>
+    <string name="todo_pick_file">选择 Org 文件</string>
+    <string name="todo_create_file">新建 Org 文件</string>
+    <string name="todo_no_file">尚未选择 Org 文件\n选择一个 org 文件来管理待办</string>
+    <string name="todo_empty">文件中没有待办事项</string>
+    <string name="todo_untitled">（无标题）</string>
+    <string name="todo_mark_done">标记完成</string>
+    <string name="todo_mark_undone">取消完成</string>
+
     <!-- 小部件 -->
     <string name="widget_title">打卡状态</string>
     <string name="widget_no_data">暂无数据</string>
     <string name="widget_all_completed">今日目标已全部完成！</string>
     <string name="widget_refresh">刷新</string>
+    <string name="widget_no_org_file">未设置 Org 文件</string>
+    <string name="widget_todo_empty">没有待办事项</string>
 
     <!-- 应用选择 -->
     <string name="select_apps_title">选择要监控的应用</string>

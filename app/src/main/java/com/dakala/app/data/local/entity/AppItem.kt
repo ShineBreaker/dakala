@@ -64,6 +64,7 @@ data class AppSetting(
     companion object {
         const val KEY_NOTIFICATION_TIME = "notification_time"
         const val KEY_DEFAULT_DURATION_THRESHOLD = "default_duration_threshold"
+        const val KEY_ORG_FILE_URI = "org_file_uri"
     }
 }
 

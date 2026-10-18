@@ -17,6 +17,8 @@ import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
+import com.dakala.app.data.org.OrgNote
+import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.runBlocking
@@ -28,11 +30,10 @@ import java.io.InputStream
 class WidgetService : RemoteViewsService() {
 
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
-        val tabType = intent.getIntExtra("tab_type", 0)
-        return if (tabType == 1) {
-            CustomCheckRemoteViewsFactory(applicationContext, intent)
-        } else {
-            WidgetRemoteViewsFactory(applicationContext, intent)
+        return when (intent.getIntExtra("tab_type", 0)) {
+            1 -> CustomCheckRemoteViewsFactory(applicationContext, intent)
+            2 -> TodoRemoteViewsFactory(applicationContext, intent)
+            else -> WidgetRemoteViewsFactory(applicationContext, intent)
         }
     }
 }
@@ -323,5 +324,122 @@ class CustomCheckRemoteViewsFactory(
             Log.e(TAG, "加载圆角图片失败", e)
             null
         }
+    }
+}
+
+/**
+ * 小部件列表视图工厂 - Org 待办
+ */
+class TodoRemoteViewsFactory(
+    private val context: Context,
+    private val intent: Intent
+) : RemoteViewsService.RemoteViewsFactory {
+
+    companion object {
+        private const val TAG = "TodoRemoteViewsFactory"
+    }
+
+    private var appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var notes: List<OrgNote> = emptyList()
+
+    override fun onCreate() {
+        appWidgetId = intent.getIntExtra(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID
+        )
+        Log.d(TAG, "onCreate: appWidgetId=$appWidgetId")
+    }
+
+    override fun onDataSetChanged() {
+        Log.d(TAG, "onDataSetChanged: 开始读取 org 待办")
+        notes = runBlocking { loadTodoNotes() }
+        Log.d(TAG, "onDataSetChanged: 读取到 ${notes.size} 个待办")
+    }
+
+    override fun onDestroy() {
+        notes = emptyList()
+    }
+
+    override fun getCount(): Int = notes.size
+
+    override fun getViewAt(position: Int): RemoteViews {
+        if (position < 0 || position >= notes.size) {
+            return RemoteViews(context.packageName, R.layout.widget_todo_item)
+        }
+
+        val note = notes[position]
+        val views = RemoteViews(context.packageName, R.layout.widget_todo_item)
+
+        // 完成状态图标
+        views.setImageViewResource(
+            R.id.item_check,
+            if (note.isDone) R.drawable.ic_check_filled else R.drawable.ic_check_outline
+        )
+
+        // 状态关键字（未完成的用错误色，完成的用成功色）
+        views.setTextViewText(R.id.todo_state, note.state)
+        views.setTextColor(
+            R.id.todo_state,
+            context.getColor(if (note.isDone) R.color.success else R.color.error)
+        )
+
+        // 标题（按层级缩进）
+        val indent = "　".repeat((note.level - 1).coerceAtLeast(0))
+        views.setTextViewText(R.id.todo_title, indent + note.title)
+        if (note.isDone) {
+            views.setTextColor(R.id.todo_title, context.getColor(R.color.on_surface_variant))
+        } else {
+            views.setTextColor(R.id.todo_title, context.getColor(R.color.on_surface))
+        }
+
+        // meta 行：tags + planning 时间
+        val meta = buildList {
+            if (note.tags.isNotEmpty()) add(note.tags.joinToString(" ") { ":$it:" })
+            note.scheduled?.let { add("S:" + formatOrgTimestamp(it)) }
+            note.deadline?.let { add("D:" + formatOrgTimestamp(it)) }
+        }
+        if (meta.isNotEmpty()) {
+            views.setTextViewText(R.id.todo_meta, meta.joinToString(" "))
+            views.setViewVisibility(R.id.todo_meta, android.view.View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.todo_meta, android.view.View.GONE)
+        }
+
+        // 点击切换状态
+        val fillInIntent = Intent().apply {
+            putExtra(UsageWidgetProvider.EXTRA_LINE_INDEX, note.lineIndex)
+        }
+        views.setOnClickFillInIntent(R.id.widget_item_root, fillInIntent)
+
+        return views
+    }
+
+    override fun getLoadingView(): RemoteViews? = null
+    override fun getViewTypeCount(): Int = 1
+    override fun getItemId(position: Int): Long = position.toLong()
+    override fun hasStableIds(): Boolean = false
+
+    private suspend fun loadTodoNotes(): List<OrgNote> {
+        return try {
+            val database = AppUsageDatabase.getInstance(context)
+            val repository = OrgTodoRepository(context, database.appSettingDao())
+            when (val result = repository.readTodos()) {
+                is OrgTodoRepository.ReadResult.Success -> result.file.notes
+                else -> emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "读取 org 待办失败", e)
+            emptyList()
+        }
+    }
+
+    /** 将 org 时间戳原文转为简洁日期显示 */
+    private fun formatOrgTimestamp(raw: String): String {
+        val inner = raw.removePrefix("<").removePrefix("[").removeSuffix(">").removeSuffix("]")
+        return inner.split(Regex("\\s+"))
+            .filterIndexed { index, part ->
+                index == 0 || part.matches(Regex("\\d{1,2}:\\d{2}(-\\d{1,2}:\\d{2})?"))
+            }
+            .joinToString(" ")
     }
 }

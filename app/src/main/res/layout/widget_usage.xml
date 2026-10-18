@@ -48,6 +48,18 @@
             android:textColor="@color/on_surface"
             android:textSize="11sp" />
 
+        <TextView
+            android:id="@+id/btn_tab_todo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/tab_background"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="@string/tab_todo"
+            android:textColor="@color/on_surface"
+            android:textSize="11sp" />
+
         <!-- 刷新按钮 -->
         <ImageButton
             android:id="@+id/btn_refresh"

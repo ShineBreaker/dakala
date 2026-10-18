@@ -8,6 +8,7 @@ import com.dakala.app.data.local.dao.CustomCheckItemDao
 import com.dakala.app.data.local.dao.CustomCheckRecordDao
 import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.repository.AppUsageRepository
+import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import dagger.Module
 import dagger.Provides
@@ -79,6 +80,18 @@ object DataModule {
     @Singleton
     fun provideCustomCheckRecordDao(database: AppUsageDatabase): CustomCheckRecordDao {
         return database.customCheckRecordDao()
+    }
+
+    /**
+     * 提供 Org 待办文件仓库
+     */
+    @Provides
+    @Singleton
+    fun provideOrgTodoRepository(
+        @ApplicationContext context: Context,
+        appSettingDao: AppSettingDao
+    ): OrgTodoRepository {
+        return OrgTodoRepository(context, appSettingDao)
     }
 
     /**

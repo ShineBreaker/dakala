@@ -17,6 +17,8 @@ import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.local.entity.AppItem
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.local.entity.CustomCheckRecord
+import com.dakala.app.data.org.OrgNote
+import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
@@ -47,10 +49,12 @@ class UsageWidgetProvider : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.dakala.app.ACTION_REFRESH_WIDGET"
         const val ACTION_TAB_SWITCH = "com.dakala.app.ACTION_TAB_SWITCH"
         const val ACTION_CUSTOM_CHECK_TOGGLE = "com.dakala.app.ACTION_CUSTOM_CHECK_TOGGLE"
+        const val ACTION_TODO_TOGGLE = "com.dakala.app.ACTION_TODO_TOGGLE"
         const val EXTRA_PACKAGE_NAME = "package_name"
         const val EXTRA_TAB_INDEX = "tab_index"
         const val EXTRA_ITEM_ID = "item_id"
         const val EXTRA_IS_COMPLETED = "is_completed"
+        const val EXTRA_LINE_INDEX = "line_index"
 
         // SharedPreferences key for current tab
         private const val PREFS_NAME = "widget_prefs"
@@ -156,6 +160,13 @@ class UsageWidgetProvider : AppWidgetProvider() {
                     toggleCustomCheckStatus(context, itemId, !isCompleted)
                 }
             }
+            ACTION_TODO_TOGGLE -> {
+                // 处理待办状态切换事件
+                val lineIndex = intent.getIntExtra(EXTRA_LINE_INDEX, -1)
+                if (lineIndex >= 0) {
+                    toggleTodoNote(context, lineIndex)
+                }
+            }
             ACTION_REFRESH -> {
                 // 处理手动刷新事件
                 Log.d(TAG, "onReceive: 手动刷新小部件")
@@ -206,6 +217,28 @@ class UsageWidgetProvider : AppWidgetProvider() {
     }
 
     /**
+     * 切换 org 待办状态（写回 org 文件）
+     */
+    private fun toggleTodoNote(context: Context, lineIndex: Int) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val database = AppUsageDatabase.getInstance(context)
+                val repository = OrgTodoRepository(context, database.appSettingDao())
+                repository.toggleNoteAtLine(lineIndex)
+                Log.d(TAG, "切换待办状态: lineIndex=$lineIndex")
+
+                // 刷新小部件
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val componentName = ComponentName(context, UsageWidgetProvider::class.java)
+                val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
+                updateAllWidgets(context, appWidgetManager, appWidgetIds)
+            } catch (e: Exception) {
+                Log.e(TAG, "切换待办状态失败", e)
+            }
+        }
+    }
+
+    /**
      * 更新所有小部件
      */
     private suspend fun updateAllWidgets(
@@ -239,16 +272,23 @@ class UsageWidgetProvider : AppWidgetProvider() {
         // 更新每个小部件
         for (appWidgetId in appWidgetIds) {
             Log.d(TAG, "updateAllWidgets: 更新小部件 $appWidgetId, Tab=$currentTab")
-            if (currentTab == 0) {
-                // 应用打卡 Tab
-                val incompleteApps = getIncompleteApps(context)
-                Log.d(TAG, "updateAllWidgets: 获取到 ${incompleteApps.size} 个未完成应用")
-                updateAppCheckWidget(context, appWidgetManager, appWidgetId, incompleteApps)
-            } else {
-                // 自定义打卡 Tab
-                val customCheckItems = getCustomCheckItems(context)
-                Log.d(TAG, "updateAllWidgets: 获取到 ${customCheckItems.size} 个自定义打卡项")
-                updateCustomCheckWidget(context, appWidgetManager, appWidgetId, customCheckItems)
+            when (currentTab) {
+                0 -> {
+                    // 应用打卡 Tab
+                    val incompleteApps = getIncompleteApps(context)
+                    Log.d(TAG, "updateAllWidgets: 获取到 ${incompleteApps.size} 个未完成应用")
+                    updateAppCheckWidget(context, appWidgetManager, appWidgetId, incompleteApps)
+                }
+                1 -> {
+                    // 自定义打卡 Tab
+                    val customCheckItems = getCustomCheckItems(context)
+                    Log.d(TAG, "updateAllWidgets: 获取到 ${customCheckItems.size} 个自定义打卡项")
+                    updateCustomCheckWidget(context, appWidgetManager, appWidgetId, customCheckItems)
+                }
+                else -> {
+                    // Org 待办 Tab
+                    updateTodoWidget(context, appWidgetManager, appWidgetId)
+                }
             }
         }
         Log.d(TAG, "updateAllWidgets: 完成更新")
@@ -415,6 +455,93 @@ class UsageWidgetProvider : AppWidgetProvider() {
     }
 
     /**
+     * 更新 Org 待办小部件
+     */
+    @Suppress("DEPRECATION")
+    private suspend fun updateTodoWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int
+    ) {
+        val views = RemoteViews(context.packageName, R.layout.widget_usage)
+
+        // 设置 Tab 按钮状态
+        setupTabButtons(context, views, appWidgetId, 2)
+
+        // 设置点击标题跳转到本应用
+        val mainIntent = Intent(context, com.dakala.app.ui.MainActivity::class.java)
+        val mainPendingIntent = PendingIntent.getActivity(
+            context,
+            2,
+            mainIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_title, mainPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_empty, mainPendingIntent)
+
+        // 设置刷新按钮点击事件
+        val refreshIntent = Intent(context, UsageWidgetProvider::class.java).apply {
+            action = ACTION_REFRESH
+        }
+        val refreshPendingIntent = PendingIntent.getBroadcast(
+            context,
+            appWidgetId + 1000,
+            refreshIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.btn_refresh, refreshPendingIntent)
+
+        // 读取 org 文件待办
+        val database = AppUsageDatabase.getInstance(context)
+        val repository = OrgTodoRepository(context, database.appSettingDao())
+        when (val result = repository.readTodos()) {
+            is OrgTodoRepository.ReadResult.NoFile -> {
+                views.setViewVisibility(R.id.widget_list, android.view.View.GONE)
+                views.setViewVisibility(R.id.widget_empty, android.view.View.VISIBLE)
+                views.setTextViewText(R.id.widget_empty, context.getString(R.string.widget_no_org_file))
+            }
+            is OrgTodoRepository.ReadResult.Error -> {
+                views.setViewVisibility(R.id.widget_list, android.view.View.GONE)
+                views.setViewVisibility(R.id.widget_empty, android.view.View.VISIBLE)
+                views.setTextViewText(R.id.widget_empty, context.getString(R.string.widget_no_org_file))
+            }
+            is OrgTodoRepository.ReadResult.Success -> {
+                if (result.file.notes.isEmpty()) {
+                    views.setViewVisibility(R.id.widget_list, android.view.View.GONE)
+                    views.setViewVisibility(R.id.widget_empty, android.view.View.VISIBLE)
+                    views.setTextViewText(R.id.widget_empty, context.getString(R.string.widget_todo_empty))
+                } else {
+                    views.setViewVisibility(R.id.widget_list, android.view.View.VISIBLE)
+                    views.setViewVisibility(R.id.widget_empty, android.view.View.GONE)
+
+                    // 设置列表项点击模板
+                    val todoClickIntent = Intent(context, UsageWidgetProvider::class.java).apply {
+                        action = ACTION_TODO_TOGGLE
+                    }
+                    val todoClickPendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        appWidgetId + 6000,
+                        todoClickIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    views.setPendingIntentTemplate(R.id.widget_list, todoClickPendingIntent)
+
+                    // 设置列表适配器
+                    val intent = Intent(context, WidgetService::class.java).apply {
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        putExtra("tab_type", 2) // Org 待办
+                        data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                    }
+                    views.setRemoteAdapter(R.id.widget_list, intent)
+                }
+            }
+        }
+
+        appWidgetManager.updateAppWidget(appWidgetId, views)
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list)
+    }
+
+    /**
      * 设置 Tab 按钮状态
      */
     private fun setupTabButtons(
@@ -450,6 +577,20 @@ class UsageWidgetProvider : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.btn_tab_custom, customTabPendingIntent)
         views.setBoolean(R.id.btn_tab_custom, "setEnabled", currentTab != 1)
+
+        // 待办 Tab
+        val todoTabIntent = Intent(context, UsageWidgetProvider::class.java).apply {
+            action = ACTION_TAB_SWITCH
+            putExtra(EXTRA_TAB_INDEX, 2)
+        }
+        val todoTabPendingIntent = PendingIntent.getBroadcast(
+            context,
+            appWidgetId + 5000,
+            todoTabIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.btn_tab_todo, todoTabPendingIntent)
+        views.setBoolean(R.id.btn_tab_todo, "setEnabled", currentTab != 2)
     }
 
     /**
