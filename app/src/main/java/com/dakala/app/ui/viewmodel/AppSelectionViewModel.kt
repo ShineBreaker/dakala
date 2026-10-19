@@ -55,7 +55,7 @@ class AppSelectionViewModel @Inject constructor(
      * 加载状态
      */
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.value.let { MutableStateFlow(it) }
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     /**
      * 搜索关键词
