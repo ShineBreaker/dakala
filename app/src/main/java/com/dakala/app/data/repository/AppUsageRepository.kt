@@ -14,7 +14,6 @@ import com.dakala.app.data.local.entity.CustomCheckRecord
 import com.dakala.app.domain.model.DayStamp
 import com.dakala.app.domain.model.NotificationTime
 import kotlinx.coroutines.flow.Flow
-import java.util.Calendar
 
 /**
  * 应用使用统计仓库
@@ -81,60 +80,8 @@ class AppUsageRepository(
     }
 
     /**
-     * 获取所有应用（包括未监控的）
-     * 
-     * @return 所有应用列表
-     */
-    @Suppress("unused")
-    suspend fun getAllApps(): List<AppItem> {
-        return appItemDao.getAllApps()
-    }
-
-    /**
-     * 添加应用到监控列表
-     * 
-     * @param app 要添加的应用
-     */
-    suspend fun addAppToMonitor(app: AppItem) {
-        Log.d(TAG, "添加应用到监控列表: ${app.packageName}")
-        appItemDao.insertApp(app)
-    }
-
-    /**
-     * 批量添加应用到监控列表
-     * 
-     * @param apps 要添加的应用列表
-     */
-    suspend fun addAppsToMonitor(apps: List<AppItem>) {
-        Log.d(TAG, "批量添加应用到监控列表: ${apps.size}个应用")
-        appItemDao.insertApps(apps)
-    }
-
-    /**
-     * 从监控列表移除应用
-     * 
-     * @param packageName 要移除的应用包名
-     */
-    suspend fun removeAppFromMonitor(packageName: String) {
-        Log.d(TAG, "从监控列表移除应用: $packageName")
-        appItemDao.deleteByPackageName(packageName)
-    }
-
-    /**
-     * 更新应用的监控状态
-     * 
-     * @param packageName 应用包名
-     * @param isMonitored 是否监控
-     */
-    @Suppress("unused")
-    suspend fun updateMonitoredStatus(packageName: String, isMonitored: Boolean) {
-        Log.d(TAG, "更新监控状态: $packageName -> $isMonitored")
-        appItemDao.updateMonitoredStatus(packageName, isMonitored)
-    }
-
-    /**
      * 更新应用的时长阈值
-     * 
+     *
      * @param packageName 应用包名
      * @param threshold 时长阈值（秒）
      */
@@ -143,83 +90,16 @@ class AppUsageRepository(
         appItemDao.updateDurationThreshold(packageName, threshold)
     }
 
-    /**
-     * 根据包名获取应用
-     * 
-     * @param packageName 应用包名
-     * @return 应用信息，不存在则返回null
-     */
-    @Suppress("unused")
-    suspend fun getAppByPackageName(packageName: String): AppItem? {
-        return appItemDao.getAppByPackageName(packageName)
-    }
-
     // ==================== 使用记录相关操作 ====================
 
     /**
-     * 更新应用使用记录
-     * 
-     * 将UsageStatsManager获取的使用时长保存到数据库。
-     * 
-     * @param packageName 应用包名
-     * @param durationSeconds 使用时长（秒）
-     */
-    @Suppress("unused")
-    suspend fun updateUsageRecord(packageName: String, durationSeconds: Int) {
-        val today = DayStamp.today()
-        val record = UsageRecord(
-            packageName = packageName,
-            date = today,
-            durationSeconds = durationSeconds,
-            lastUpdated = System.currentTimeMillis()
-        )
-        Log.d(TAG, "更新使用记录: $packageName, 今日时长: ${durationSeconds}秒")
-        usageRecordDao.insertOrUpdateRecord(record)
-    }
-
-    /**
      * 批量更新应用使用记录
-     * 
+     *
      * @param records 使用记录列表
      */
     suspend fun updateUsageRecords(records: List<UsageRecord>) {
         Log.d(TAG, "批量更新使用记录: ${records.size}条")
         usageRecordDao.insertOrUpdateRecords(records)
-    }
-
-    /**
-     * 获取指定应用今日的使用记录
-     * 
-     * @param packageName 应用包名
-     * @return 使用记录，不存在则返回null
-     */
-    @Suppress("unused")
-    suspend fun getTodayUsageRecord(packageName: String): UsageRecord? {
-        return usageRecordDao.getRecord(packageName, DayStamp.today())
-    }
-
-    /**
-     * 获取今日所有应用的使用记录
-     * 
-     * @return 今日使用记录列表
-     */
-    @Suppress("unused")
-    suspend fun getTodayUsageRecords(): List<UsageRecord> {
-        return usageRecordDao.getRecordsByDate(DayStamp.today())
-    }
-
-    /**
-     * 清理旧的使用记录（保留最近7天）
-     */
-    @Suppress("unused")
-    suspend fun cleanOldRecords() {
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_MONTH, -7)
-        val beforeDate = calendar.get(Calendar.YEAR) * 10000 +
-                (calendar.get(Calendar.MONTH) + 1) * 100 +
-                calendar.get(Calendar.DAY_OF_MONTH)
-        Log.d(TAG, "清理旧记录: $beforeDate 之前")
-        usageRecordDao.deleteOldRecords(beforeDate)
     }
 
     // ==================== 应用设置相关操作 ====================
@@ -264,16 +144,6 @@ class AppUsageRepository(
         appSettingDao.setSetting(AppSetting(AppSetting.KEY_DEFAULT_DURATION_THRESHOLD, threshold.toString()))
     }
 
-    /**
-     * 获取通知时间设置（响应式）
-     * 
-     * @return 通知时间的Flow
-     */
-    @Suppress("unused")
-    fun getNotificationTimeFlow(): Flow<String?> {
-        return appSettingDao.getSettingFlow(AppSetting.KEY_NOTIFICATION_TIME)
-    }
-
     // ==================== 自定义打卡项相关操作 ====================
 
     /**
@@ -281,14 +151,6 @@ class AppUsageRepository(
      */
     fun getCustomCheckItemsFlow(): Flow<List<CustomCheckItem>> {
         return customCheckItemDao.getAllItemsFlow()
-    }
-
-    /**
-     * 获取所有自定义打卡项
-     */
-    @Suppress("unused")
-    suspend fun getCustomCheckItems(): List<CustomCheckItem> {
-        return customCheckItemDao.getAllItems()
     }
 
     /**
@@ -316,26 +178,10 @@ class AppUsageRepository(
     }
 
     /**
-     * 获取今日自定义打卡记录（响应式）
-     */
-    @Suppress("unused")
-    fun getTodayCustomCheckRecordsFlow(): Flow<List<CustomCheckRecord>> {
-        return customCheckRecordDao.getRecordsByDateFlow(DayStamp.today())
-    }
-
-    /**
      * 获取指定日期自定义打卡记录（响应式）
      */
     fun getCustomCheckRecordsByDateFlow(date: Int): Flow<List<CustomCheckRecord>> {
         return customCheckRecordDao.getRecordsByDateFlow(date)
-    }
-
-    /**
-     * 获取今日自定义打卡记录
-     */
-    @Suppress("unused")
-    suspend fun getTodayCustomCheckRecords(): List<CustomCheckRecord> {
-        return customCheckRecordDao.getRecordsByDate(DayStamp.today())
     }
 
     /**
@@ -351,14 +197,5 @@ class AppUsageRepository(
         )
         Log.d(TAG, "切换自定义打卡状态: itemId=$itemId, isCompleted=$isCompleted")
         customCheckRecordDao.insertOrUpdateRecord(record)
-    }
-
-    /**
-     * 检查今日是否已完成自定义打卡
-     */
-    @Suppress("unused")
-    suspend fun isCustomCheckCompletedToday(itemId: Int): Boolean {
-        val record = customCheckRecordDao.getRecord(itemId, DayStamp.today())
-        return record?.isCompleted ?: false
     }
 }

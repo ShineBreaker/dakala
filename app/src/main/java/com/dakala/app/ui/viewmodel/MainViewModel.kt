@@ -1,11 +1,9 @@
 package com.dakala.app.ui.viewmodel
 
 import android.app.Application
-import android.content.pm.PackageManager
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.dakala.app.data.local.entity.AppItem
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.domain.model.AppMonitorStatus
@@ -55,11 +53,9 @@ class MainViewModel @Inject constructor(
     private var lastRefreshDate: Int = DayStamp.today()
 
     /**
-     * 今日使用时长映射（包名 -> 秒数）
+     * 今日使用时长映射（包名 -> 秒数），驱动监控状态分组
      */
     private val _todayUsageMap = MutableStateFlow<Map<String, Int>>(emptyMap())
-    @Suppress("unused")
-    val todayUsageMap: StateFlow<Map<String, Int>> = _todayUsageMap.asStateFlow()
 
     /**
      * 当前日期（响应式），用于驱动自定义打卡记录的日期查询
@@ -107,20 +103,6 @@ class MainViewModel @Inject constructor(
      */
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    /**
-     * 错误信息
-     */
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    @Suppress("unused")
-    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-
-    /**
-     * 系统已安装应用列表（用于应用选择界面）
-     */
-    private val _installedApps = MutableStateFlow<List<AppItem>>(emptyList())
-    @Suppress("unused")
-    val installedApps: StateFlow<List<AppItem>> = _installedApps.asStateFlow()
 
     // ==================== 初始化 ====================
 
@@ -192,7 +174,6 @@ class MainViewModel @Inject constructor(
                 Log.d(TAG, "刷新使用统计完成: ${usageMap.size}个应用")
             } catch (e: Exception) {
                 Log.e(TAG, "刷新使用统计失败", e)
-                _errorMessage.value = "刷新使用统计失败: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
@@ -248,97 +229,6 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * 加载系统已安装的应用列表
-     *
-     * 用于应用选择界面，获取所有可启动的应用。
-     */
-    @Suppress("unused")
-    fun loadInstalledApps() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val packageManager = getApplication<Application>().packageManager
-                val intent = android.content.Intent(android.content.Intent.ACTION_MAIN, null).apply {
-                    addCategory(android.content.Intent.CATEGORY_LAUNCHER)
-                }
-
-                val resolveInfoList = packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-
-                // 获取已监控的应用包名
-                val monitoredApps = repository.getMonitoredApps()
-                val monitoredPackageNames = monitoredApps.map { it.packageName }.toSet()
-
-                val appList = resolveInfoList
-                    .map { resolveInfo ->
-                        val appInfo = resolveInfo.activityInfo.applicationInfo
-                        AppItem(
-                            packageName = appInfo.packageName,
-                            appName = appInfo.loadLabel(packageManager).toString(),
-                            isMonitored = appInfo.packageName in monitoredPackageNames
-                        )
-                    }
-                    .distinctBy { it.packageName }
-                    .sortedBy { it.appName.lowercase() }
-
-                _installedApps.value = appList
-                Log.d(TAG, "加载已安装应用: ${appList.size}个")
-            } catch (e: Exception) {
-                Log.e(TAG, "加载已安装应用失败", e)
-                _errorMessage.value = "加载应用列表失败: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    /**
-     * 添加应用到监控列表
-     *
-     * @param packageName 应用包名
-     * @param appName 应用名称
-     */
-    @Suppress("unused")
-    fun addAppToMonitor(packageName: String, appName: String) {
-        viewModelScope.launch {
-            val defaultThreshold = repository.getDefaultDurationThreshold()
-            val app = AppItem(
-                packageName = packageName,
-                appName = appName,
-                isMonitored = true,
-                durationThreshold = defaultThreshold
-            )
-            repository.addAppToMonitor(app)
-            Log.d(TAG, "添加应用到监控: $packageName")
-        }
-    }
-
-    /**
-     * 批量添加应用到监控列表
-     *
-     * @param apps 应用列表
-     */
-    @Suppress("unused")
-    fun addAppsToMonitor(apps: List<AppItem>) {
-        viewModelScope.launch {
-            repository.addAppsToMonitor(apps)
-            Log.d(TAG, "批量添加应用到监控: ${apps.size}个")
-        }
-    }
-
-    /**
-     * 从监控列表移除应用
-     *
-     * @param packageName 应用包名
-     */
-    @Suppress("unused")
-    fun removeAppFromMonitor(packageName: String) {
-        viewModelScope.launch {
-            repository.removeAppFromMonitor(packageName)
-            Log.d(TAG, "从监控移除应用: $packageName")
-        }
-    }
-
-    /**
      * 更新应用的时长阈值
      *
      * @param packageName 应用包名
@@ -349,25 +239,6 @@ class MainViewModel @Inject constructor(
             repository.updateDurationThreshold(packageName, thresholdSeconds)
             Log.d(TAG, "更新时长阈值: $packageName -> ${thresholdSeconds}秒")
         }
-    }
-
-    /**
-     * 清除错误信息
-     */
-    @Suppress("unused")
-    fun clearErrorMessage() {
-        _errorMessage.value = null
-    }
-
-    /**
-     * 检查应用今日是否已打开
-     *
-     * @param packageName 应用包名
-     * @return 是否已打开
-     */
-    @Suppress("unused")
-    fun isAppOpenedToday(packageName: String): Boolean {
-        return (_todayUsageMap.value[packageName] ?: 0) > 0
     }
 
     // ==================== 私有方法 ====================

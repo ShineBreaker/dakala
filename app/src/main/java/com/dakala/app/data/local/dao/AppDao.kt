@@ -25,24 +25,6 @@ interface AppItemDao {
     suspend fun insertApp(app: AppItem)
 
     /**
-     * 批量插入应用监控项
-     */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertApps(apps: List<AppItem>)
-
-    /**
-     * 更新应用监控项
-     */
-    @Update
-    suspend fun updateApp(app: AppItem)
-
-    /**
-     * 删除应用监控项
-     */
-    @Delete
-    suspend fun deleteApp(app: AppItem)
-
-    /**
      * 根据包名删除应用监控项
      */
     @Query("DELETE FROM app_items WHERE packageName = :packageName")
@@ -62,34 +44,10 @@ interface AppItemDao {
     suspend fun getMonitoredApps(): List<AppItem>
 
     /**
-     * 获取所有应用（包括未监控的）
-     */
-    @Query("SELECT * FROM app_items ORDER BY appName ASC")
-    suspend fun getAllApps(): List<AppItem>
-
-    /**
-     * 根据包名获取应用
-     */
-    @Query("SELECT * FROM app_items WHERE packageName = :packageName LIMIT 1")
-    suspend fun getAppByPackageName(packageName: String): AppItem?
-
-    /**
-     * 更新应用的监控状态
-     */
-    @Query("UPDATE app_items SET isMonitored = :isMonitored, updatedAt = :timestamp WHERE packageName = :packageName")
-    suspend fun updateMonitoredStatus(packageName: String, isMonitored: Boolean, timestamp: Long = System.currentTimeMillis())
-
-    /**
      * 更新应用的时长阈值
      */
     @Query("UPDATE app_items SET durationThreshold = :threshold, updatedAt = :timestamp WHERE packageName = :packageName")
     suspend fun updateDurationThreshold(packageName: String, threshold: Int, timestamp: Long = System.currentTimeMillis())
-
-    /**
-     * 清空所有应用监控项
-     */
-    @Query("DELETE FROM app_items")
-    suspend fun deleteAll()
 
     /**
      * 事务：以传入列表为准同步监控列表
@@ -124,42 +82,10 @@ interface AppItemDao {
 interface UsageRecordDao {
 
     /**
-     * 插入或更新使用记录
-     */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdateRecord(record: UsageRecord)
-
-    /**
      * 批量插入或更新使用记录
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateRecords(records: List<UsageRecord>)
-
-    /**
-     * 获取指定应用在指定日期的使用记录
-     * @param packageName 应用包名
-     * @param date 日期（格式：yyyyMMdd）
-     */
-    @Query("SELECT * FROM usage_records WHERE packageName = :packageName AND date = :date LIMIT 1")
-    suspend fun getRecord(packageName: String, date: Int): UsageRecord?
-
-    /**
-     * 获取指定日期所有应用的使用记录
-     */
-    @Query("SELECT * FROM usage_records WHERE date = :date")
-    suspend fun getRecordsByDate(date: Int): List<UsageRecord>
-
-    /**
-     * 获取指定应用的使用记录（响应式）
-     */
-    @Query("SELECT * FROM usage_records WHERE packageName = :packageName AND date = :date")
-    fun getRecordFlow(packageName: String, date: Int): Flow<UsageRecord?>
-
-    /**
-     * 删除指定日期之前的记录（清理旧数据）
-     */
-    @Query("DELETE FROM usage_records WHERE date < :beforeDate")
-    suspend fun deleteOldRecords(beforeDate: Int)
 }
 
 /**
@@ -181,12 +107,6 @@ interface AppSettingDao {
      */
     @Query("SELECT value FROM app_settings WHERE key = :key LIMIT 1")
     suspend fun getSetting(key: String): String?
-
-    /**
-     * 获取设置值（响应式）
-     */
-    @Query("SELECT value FROM app_settings WHERE key = :key LIMIT 1")
-    fun getSettingFlow(key: String): Flow<String?>
 
     /**
      * 删除设置
@@ -216,12 +136,6 @@ interface CustomCheckItemDao {
     suspend fun updateItem(item: CustomCheckItem)
 
     /**
-     * 删除自定义打卡项
-     */
-    @Delete
-    suspend fun deleteItem(item: CustomCheckItem)
-
-    /**
      * 根据ID删除自定义打卡项
      */
     @Query("DELETE FROM custom_check_items WHERE id = :id")
@@ -238,12 +152,6 @@ interface CustomCheckItemDao {
      */
     @Query("SELECT * FROM custom_check_items ORDER BY createdAt ASC")
     fun getAllItemsFlow(): Flow<List<CustomCheckItem>>
-
-    /**
-     * 根据ID获取自定义打卡项
-     */
-    @Query("SELECT * FROM custom_check_items WHERE id = :id LIMIT 1")
-    suspend fun getItemById(id: Int): CustomCheckItem?
 }
 
 /**
@@ -261,12 +169,6 @@ interface CustomCheckRecordDao {
     suspend fun insertOrUpdateRecord(record: CustomCheckRecord)
 
     /**
-     * 获取指定项在指定日期的打卡记录
-     */
-    @Query("SELECT * FROM custom_check_records WHERE itemId = :itemId AND date = :date LIMIT 1")
-    suspend fun getRecord(itemId: Int, date: Int): CustomCheckRecord?
-
-    /**
      * 获取指定日期所有打卡记录
      */
     @Query("SELECT * FROM custom_check_records WHERE date = :date")
@@ -277,10 +179,4 @@ interface CustomCheckRecordDao {
      */
     @Query("SELECT * FROM custom_check_records WHERE date = :date")
     fun getRecordsByDateFlow(date: Int): Flow<List<CustomCheckRecord>>
-
-    /**
-     * 删除指定日期之前的记录（清理旧数据）
-     */
-    @Query("DELETE FROM custom_check_records WHERE date < :beforeDate")
-    suspend fun deleteOldRecords(beforeDate: Int)
 }
