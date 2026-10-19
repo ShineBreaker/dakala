@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -191,22 +193,10 @@ class AppSelectionViewModel @Inject constructor(
                         )
                     }
 
-                // 获取当前已监控的应用
-                val currentMonitoredApps = repository.getMonitoredApps()
-                val currentPackageNames = currentMonitoredApps.map { it.packageName }.toSet()
-
-                // 删除不再监控的应用
-                for (app in currentMonitoredApps) {
-                    if (app.packageName !in selectedPackageNames) {
-                        repository.removeAppFromMonitor(app.packageName)
-                    }
-                }
-
-                // 添加新监控的应用
-                for (app in appsToSave) {
-                    if (app.packageName !in currentPackageNames) {
-                        repository.addAppToMonitor(app)
-                    }
+                // 界面保存后会立即 finish()，viewModelScope 随之取消：
+                // 写入必须脱离取消作用域且整批原子生效，否则可能只保存一半
+                withContext(NonCancellable) {
+                    repository.syncMonitoredApps(appsToSave)
                 }
 
                 Log.d(TAG, "保存选择的应用: ${appsToSave.size}个")

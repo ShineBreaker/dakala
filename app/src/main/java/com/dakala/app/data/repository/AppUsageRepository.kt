@@ -68,6 +68,18 @@ class AppUsageRepository(
     }
 
     /**
+     * 以传入列表为准同步监控列表（事务）
+     *
+     * 不在列表内的监控项被移除、新增的项被插入，整批原子生效；
+     * 保存入口在界面 finish() 之后也不能被截断成「只保存一半」。
+     *
+     * @param selected 应保留的监控应用列表
+     */
+    suspend fun syncMonitoredApps(selected: List<AppItem>) {
+        return appItemDao.syncMonitoredApps(selected)
+    }
+
+    /**
      * 获取所有应用（包括未监控的）
      * 
      * @return 所有应用列表

@@ -90,6 +90,29 @@ interface AppItemDao {
      */
     @Query("DELETE FROM app_items")
     suspend fun deleteAll()
+
+    /**
+     * 事务：以传入列表为准同步监控列表
+     *
+     * 不在列表内的监控项被移除；列表中新增的项被插入。已监控的项保持原样，
+     * 不覆盖用户改过的时长阈值。整批要么全部生效、要么整体回滚。
+     */
+    @Transaction
+    suspend fun syncMonitoredApps(selected: List<AppItem>) {
+        val current = getMonitoredApps()
+        val currentNames = current.map { it.packageName }.toSet()
+        val selectedNames = selected.map { it.packageName }.toSet()
+        for (app in current) {
+            if (app.packageName !in selectedNames) {
+                deleteByPackageName(app.packageName)
+            }
+        }
+        for (app in selected) {
+            if (app.packageName !in currentNames) {
+                insertApp(app)
+            }
+        }
+    }
 }
 
 /**
