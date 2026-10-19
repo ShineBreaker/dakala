@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 提取 docs/CHANGELOG.md 中本版本对应的段落作为 release notes
+      - name: 提取 changelog 段落
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v v="$V" '
+            $0 ~ "^## \\[" v "\\]" { flag = 1; next }
+            flag && /^## \[/ { exit }
+            flag { print }
+          ' docs/CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "警告: docs/CHANGELOG.md 中找不到版本 $V 的段落" >&2
+            echo "见 docs/CHANGELOG.md" > release-notes.md
+          fi
+          cat release-notes.md
+
+      # 配置了签名 secrets 时写入 keystore.properties 并解码密钥库；
+      # 未配置时降级为 debug APK（仍可安装，debug 签名）
+      - name: 准备签名材料
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > dakala.keystore
+            printf 'storeFile=dakala.keystore\nkeyAlias=%s\nkeyPassword=%s\nstorePassword=%s\n' \
+              "$KEY_ALIAS" "$KEY_PASSWORD" "$STORE_PASSWORD" > keystore.properties
+            echo "签名材料就绪"
+          else
+            echo "未配置签名 secrets，本次发布将使用 debug 构建" >&2
+          fi
+
+      - name: 构建 APK
+        run: |
+          if [ -f keystore.properties ]; then
+            ./gradlew assembleRelease --no-configuration-cache
+          else
+            ./gradlew assembleDebug --no-configuration-cache
+          fi
+
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          if [ -f keystore.properties ]; then
+            APK=app/build/outputs/apk/release/app-release.apk
+          fi
+          if [ ! -f "$APK" ]; then
+            echo "找不到构建产物: $APK" >&2
+            exit 1
+          fi
+          cp "$APK" "dakala-${GITHUB_REF_NAME#v}.apk"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            "dakala-${GITHUB_REF_NAME#v}.apk"

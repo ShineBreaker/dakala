@@ -95,3 +95,33 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 3. 等待Gradle同步完成
 4. 连接Android设备或启动模拟器
 5. 点击 `Run > Run 'app'` 或按 `Shift+F10`
+
+## 5. 发版与 CI
+
+CI 配置在 `.github/workflows/`：
+
+- **`ci.yml`**：push 到 main 与 PR 触发，跑 `ktlintCheck test assembleDebug` 门禁并上传 debug APK artifact。
+- **`release.yml`**：推送 `v*` tag 触发，构建 APK 并创建 GitHub Release；release notes 自动取 `docs/CHANGELOG.md` 中 `## [x.y.z]` 段落的正文。
+
+### 发版步骤
+
+1. 在 `docs/CHANGELOG.md` 顶部把 `[Unreleased]`（或新增一节）写成 `## [x.y.z] - YYYY-MM-DD`，该段落即发布文案。
+2. `app/build.gradle.kts` 中 `versionCode` 递增、`versionName` 改为 `x.y.z`。
+3. 提交后打 tag 并推送：
+
+   ```bash
+   git tag v1.0.7 && git push origin main v1.0.7
+   ```
+
+### 签名 secrets（发布签名 APK 必须）
+
+在 GitHub 仓库 Settings → Secrets and variables → Actions 配置：
+
+| Secret | 内容 |
+|--------|------|
+| `KEYSTORE_BASE64` | `base64 -w0 dakala.keystore` 的输出 |
+| `STORE_PASSWORD` | keystore.properties 的 `storePassword` |
+| `KEY_ALIAS` | keystore.properties 的 `keyAlias` |
+| `KEY_PASSWORD` | keystore.properties 的 `keyPassword` |
+
+未配置时 release workflow 降级为发布 debug 签名 APK（可安装，但不是正式发布签名）。
