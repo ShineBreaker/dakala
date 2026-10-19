@@ -11,6 +11,7 @@ import com.dakala.app.data.local.entity.UsageRecord
 import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.local.entity.CustomCheckRecord
+import com.dakala.app.domain.model.DayStamp
 import com.dakala.app.domain.model.NotificationTime
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
@@ -156,18 +157,6 @@ class AppUsageRepository(
     // ==================== 使用记录相关操作 ====================
 
     /**
-     * 获取今日日期（格式：yyyyMMdd）
-     * 
-     * @return 今日日期整数
-     */
-    private fun getTodayDate(): Int {
-        val calendar = Calendar.getInstance()
-        return calendar.get(Calendar.YEAR) * 10000 +
-                (calendar.get(Calendar.MONTH) + 1) * 100 +
-                calendar.get(Calendar.DAY_OF_MONTH)
-    }
-
-    /**
      * 更新应用使用记录
      * 
      * 将UsageStatsManager获取的使用时长保存到数据库。
@@ -177,7 +166,7 @@ class AppUsageRepository(
      */
     @Suppress("unused")
     suspend fun updateUsageRecord(packageName: String, durationSeconds: Int) {
-        val today = getTodayDate()
+        val today = DayStamp.today()
         val record = UsageRecord(
             packageName = packageName,
             date = today,
@@ -206,7 +195,7 @@ class AppUsageRepository(
      */
     @Suppress("unused")
     suspend fun getTodayUsageRecord(packageName: String): UsageRecord? {
-        return usageRecordDao.getRecord(packageName, getTodayDate())
+        return usageRecordDao.getRecord(packageName, DayStamp.today())
     }
 
     /**
@@ -216,7 +205,7 @@ class AppUsageRepository(
      */
     @Suppress("unused")
     suspend fun getTodayUsageRecords(): List<UsageRecord> {
-        return usageRecordDao.getRecordsByDate(getTodayDate())
+        return usageRecordDao.getRecordsByDate(DayStamp.today())
     }
 
     /**
@@ -331,7 +320,7 @@ class AppUsageRepository(
      */
     @Suppress("unused")
     fun getTodayCustomCheckRecordsFlow(): Flow<List<CustomCheckRecord>> {
-        return customCheckRecordDao.getRecordsByDateFlow(getTodayDate())
+        return customCheckRecordDao.getRecordsByDateFlow(DayStamp.today())
     }
 
     /**
@@ -346,14 +335,14 @@ class AppUsageRepository(
      */
     @Suppress("unused")
     suspend fun getTodayCustomCheckRecords(): List<CustomCheckRecord> {
-        return customCheckRecordDao.getRecordsByDate(getTodayDate())
+        return customCheckRecordDao.getRecordsByDate(DayStamp.today())
     }
 
     /**
      * 切换自定义打卡状态
      */
     suspend fun toggleCustomCheckStatus(itemId: Int, isCompleted: Boolean) {
-        val today = getTodayDate()
+        val today = DayStamp.today()
         val record = CustomCheckRecord(
             itemId = itemId,
             date = today,
@@ -369,7 +358,7 @@ class AppUsageRepository(
      */
     @Suppress("unused")
     suspend fun isCustomCheckCompletedToday(itemId: Int): Boolean {
-        val record = customCheckRecordDao.getRecord(itemId, getTodayDate())
+        val record = customCheckRecordDao.getRecord(itemId, DayStamp.today())
         return record?.isCompleted ?: false
     }
 }

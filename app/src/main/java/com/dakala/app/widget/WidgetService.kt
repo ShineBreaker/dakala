@@ -20,6 +20,7 @@ import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.DayStamp
 import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.runBlocking
@@ -250,7 +251,7 @@ class CustomCheckRemoteViewsFactory(
             val allItems = customCheckItemDao.getAllItems()
             Log.d(TAG, "获取到 ${allItems.size} 个自定义打卡项")
 
-            val today = getTodayDate()
+            val today = DayStamp.today()
             val records = customCheckRecordDao.getRecordsByDate(today)
             val completedItemIds = records.filter { it.isCompleted }.map { it.itemId }.toSet()
 
@@ -264,13 +265,6 @@ class CustomCheckRemoteViewsFactory(
             Log.e(TAG, "获取自定义打卡项失败", e)
             emptyList()
         }
-    }
-
-    private fun getTodayDate(): Int {
-        val calendar = java.util.Calendar.getInstance()
-        return calendar.get(java.util.Calendar.YEAR) * 10000 +
-                (calendar.get(java.util.Calendar.MONTH) + 1) * 100 +
-                calendar.get(java.util.Calendar.DAY_OF_MONTH)
     }
 
     /**

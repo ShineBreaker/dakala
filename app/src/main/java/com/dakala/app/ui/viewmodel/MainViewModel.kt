@@ -11,6 +11,7 @@ import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.domain.model.CustomCheckStatus
 import com.dakala.app.domain.model.CustomCheckStatusGroup
+import com.dakala.app.domain.model.DayStamp
 import com.dakala.app.domain.model.MonitorStatusGroup
 import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.usecase.UsageStatsUseCase
@@ -24,7 +25,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Calendar
 import javax.inject.Inject
 
 /**
@@ -53,7 +53,7 @@ class MainViewModel @Inject constructor(
     /**
      * 当前追踪的日期（yyyyMMdd），用于检测跨天
      */
-    private var lastRefreshDate: Int = getCurrentDate()
+    private var lastRefreshDate: Int = DayStamp.today()
 
     /**
      * 今日使用时长映射（包名 -> 秒数）
@@ -65,7 +65,7 @@ class MainViewModel @Inject constructor(
     /**
      * 当前日期（响应式），用于驱动自定义打卡记录的日期查询
      */
-    private val _currentDate = MutableStateFlow(getCurrentDate())
+    private val _currentDate = MutableStateFlow(DayStamp.today())
 
     /**
      * 监控状态分组（按完成状态分组）
@@ -136,7 +136,7 @@ class MainViewModel @Inject constructor(
      * 应在 Activity.onResume 时调用。
      */
     fun checkDateAndRefresh() {
-        val today = getCurrentDate()
+        val today = DayStamp.today()
         if (today != lastRefreshDate) {
             Log.d(TAG, "检测到日期变更: $lastRefreshDate -> $today")
             lastRefreshDate = today
@@ -177,7 +177,7 @@ class MainViewModel @Inject constructor(
                 val usageMap = usageStatsUseCase.getAppsUsageDuration(packageNames)
 
                 // 更新数据库记录
-                val today = getTodayDate()
+                val today = DayStamp.today()
                 val records = monitoredApps.map { app ->
                     com.dakala.app.data.local.entity.UsageRecord(
                         packageName = app.packageName,
@@ -373,17 +373,8 @@ class MainViewModel @Inject constructor(
 
     // ==================== 私有方法 ====================
 
-    private fun getTodayDate(): Int = getCurrentDate()
-
     companion object {
         private const val TAG = "MainViewModel"
-
-        fun getCurrentDate(): Int {
-            val calendar = Calendar.getInstance()
-            return calendar.get(Calendar.YEAR) * 10000 +
-                    (calendar.get(Calendar.MONTH) + 1) * 100 +
-                    calendar.get(Calendar.DAY_OF_MONTH)
-        }
     }
 
     // ==================== 自定义打卡相关 ====================

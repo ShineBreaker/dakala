@@ -19,6 +19,7 @@ import com.dakala.app.data.local.entity.CustomCheckRecord
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.DayStamp
 import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
@@ -194,7 +195,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 val database = AppUsageDatabase.getInstance(context)
                 val customCheckRecordDao = database.customCheckRecordDao()
 
-                val today = getTodayDate()
+                val today = DayStamp.today()
                 val record = CustomCheckRecord(
                     itemId = itemId,
                     date = today,
@@ -611,7 +612,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
         val items = customCheckItemDao.getAllItems()
 
         // 获取今日打卡记录
-        val today = getTodayDate()
+        val today = DayStamp.today()
         val records = customCheckRecordDao.getRecordsByDate(today)
         val completedItemIds = records.filter { it.isCompleted }.map { it.itemId }.toSet()
 
@@ -621,16 +622,6 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 isCompleted = item.id in completedItemIds
             )
         }
-    }
-
-    /**
-     * 获取今日日期
-     */
-    private fun getTodayDate(): Int {
-        val calendar = java.util.Calendar.getInstance()
-        return calendar.get(java.util.Calendar.YEAR) * 10000 +
-                (calendar.get(java.util.Calendar.MONTH) + 1) * 100 +
-                calendar.get(java.util.Calendar.DAY_OF_MONTH)
     }
 
     /**
