@@ -9,11 +9,13 @@
 
 ### 修复
 
+- **跨天使用时长不刷新**：修复 1.0.6 遗留的问题，跨天后主界面仍停留在前一天的使用时长。原因是重新查询得到的数据与当前状态内容相等时被 StateFlow 去重，未触发 UI 更新
 - **使用时长跨日桶穿透**：修复 `INTERVAL_BEST` 模式下，周/月/年级别的跨日统计桶被误用为当日数据的问题。表现为未打开过的应用仍显示前一日甚至更早的使用时长，直到手动打开该应用后才恢复正常
 
 ### 技术细节
 
-- 更新 `UsageStatsUseCase.kt` - `filterTodayStats()`、`getAllUsedAppsToday()`、`getAppsUsageDurationInRange()` 三个方法的桶过滤条件从"与目标范围有重叠即可"改为"桶必须完全落在查询范围内"，排除所有跨日大桶
+- 更新 `UsageStatsUseCase.kt` - 新增 `getTodayTimeRange()`、`filterTodayStats()` 两个私有方法；`getAppUsageDuration()`、`getAppsUsageDuration()`、`getAllUsedAppsToday()` 的查询粒度由 `INTERVAL_DAILY` 改为 `INTERVAL_BEST`（前两者改用 `filterTodayStats()` 过滤）；`getAllUsedAppsToday()`、`getAppsUsageDurationInRange()` 的桶过滤条件从"有使用记录即可"改为"桶必须完全落在查询范围内"，并按 `lastTimeStamp` 降序去重，排除所有跨日大桶
+- 更新 `MainViewModel.kt` - `checkDateAndRefresh()` 改调 `refreshUsageStats(forceReset = true)`，跨天刷新前先清空 `_todayUsageMap` 再重新查询写入，避免新旧数据内容相等时被 StateFlow 去重、界面不更新
 
 ## [1.0.6] - 2026-04-20
 
