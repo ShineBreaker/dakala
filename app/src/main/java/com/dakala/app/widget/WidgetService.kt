@@ -19,6 +19,8 @@ import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
+import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.appMonitorStatuses
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.runBlocking
@@ -128,21 +130,24 @@ class WidgetRemoteViewsFactory(
         val monitoredApps = appItemDao.getMonitoredApps()
         Log.d(TAG, "获取到 ${monitoredApps.size} 个监控应用")
 
-        return monitoredApps.mapNotNull { app ->
-            val duration = usageStatsUseCase.getAppUsageDuration(app.packageName)
-            val isCompleted = duration >= app.durationThreshold
+        // 一次批量查询今日使用时长，再筛选未完成的应用
+        val durations = usageStatsUseCase.getAppsUsageDuration(monitoredApps.map { it.packageName })
 
-            if (!isCompleted) {
-                UsageWidgetProvider.AppParcelable(
-                    packageName = app.packageName,
-                    appName = app.appName,
-                    durationSeconds = duration,
-                    isOpened = duration > 0
-                )
-            } else {
-                null
-            }
-        }
+        return appMonitorStatuses(monitoredApps, durations)
+            .filterNot { it.isCompleted }
+            .map { it.toParcelable() }
+    }
+
+    /**
+     * 转换为列表项所需的数据
+     */
+    private fun AppMonitorStatus.toParcelable(): UsageWidgetProvider.AppParcelable {
+        return UsageWidgetProvider.AppParcelable(
+            packageName = appItem.packageName,
+            appName = appItem.appName,
+            durationSeconds = todayDurationSeconds,
+            isOpened = isOpenedToday
+        )
     }
 
     private fun drawableToBitmap(drawable: android.graphics.drawable.Drawable): Bitmap {

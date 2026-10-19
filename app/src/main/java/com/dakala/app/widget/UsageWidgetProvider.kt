@@ -14,11 +14,12 @@ import android.util.Log
 import android.widget.RemoteViews
 import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
-import com.dakala.app.data.local.entity.AppItem
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.local.entity.CustomCheckRecord
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
+import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.appMonitorStatuses
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
@@ -269,13 +270,15 @@ class UsageWidgetProvider : AppWidgetProvider() {
             return
         }
 
+        // 应用打卡列表只查询一次，避免每个 widget id 重复取数
+        val incompleteApps = if (currentTab == 0) getIncompleteApps(context) else emptyList()
+
         // 更新每个小部件
         for (appWidgetId in appWidgetIds) {
             Log.d(TAG, "updateAllWidgets: 更新小部件 $appWidgetId, Tab=$currentTab")
             when (currentTab) {
                 0 -> {
                     // 应用打卡 Tab
-                    val incompleteApps = getIncompleteApps(context)
                     Log.d(TAG, "updateAllWidgets: 获取到 ${incompleteApps.size} 个未完成应用")
                     updateAppCheckWidget(context, appWidgetManager, appWidgetId, incompleteApps)
                 }
@@ -302,7 +305,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        incompleteApps: List<AppItemWithStatus>
+        incompleteApps: List<AppMonitorStatus>
     ) {
         Log.d(TAG, "updateAppCheckWidget: 开始更新小部件 $appWidgetId, 未完成应用数=${incompleteApps.size}")
 
@@ -596,7 +599,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
     /**
      * 获取未完成打卡的应用列表
      */
-    private suspend fun getIncompleteApps(context: Context): List<AppItemWithStatus> {
+    private suspend fun getIncompleteApps(context: Context): List<AppMonitorStatus> {
         val database = AppUsageDatabase.getInstance(context)
         val appItemDao = database.appItemDao()
         val usageStatsUseCase = UsageStatsUseCase(context)
@@ -604,21 +607,10 @@ class UsageWidgetProvider : AppWidgetProvider() {
         // 获取所有被监控的应用
         val monitoredApps = appItemDao.getMonitoredApps()
 
-        // 筛选未完成的应用
-        return monitoredApps.mapNotNull { app ->
-            val duration = usageStatsUseCase.getAppUsageDuration(app.packageName)
-            val isCompleted = duration >= app.durationThreshold
+        // 一次批量查询今日使用时长，再筛选未完成的应用
+        val durations = usageStatsUseCase.getAppsUsageDuration(monitoredApps.map { it.packageName })
 
-            if (!isCompleted) {
-                AppItemWithStatus(
-                    app = app,
-                    durationSeconds = duration,
-                    isOpened = duration > 0
-                )
-            } else {
-                null
-            }
-        }
+        return appMonitorStatuses(monitoredApps, durations).filterNot { it.isCompleted }
     }
 
     /**
@@ -667,24 +659,6 @@ class UsageWidgetProvider : AppWidgetProvider() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "打开应用失败: $packageName", e)
-        }
-    }
-
-    /**
-     * 应用状态数据类
-     */
-    data class AppItemWithStatus(
-        val app: AppItem,
-        val durationSeconds: Int,
-        val isOpened: Boolean
-    ) {
-        fun toParcelable(): AppParcelable {
-            return AppParcelable(
-                packageName = app.packageName,
-                appName = app.appName,
-                durationSeconds = durationSeconds,
-                isOpened = isOpened
-            )
         }
     }
 

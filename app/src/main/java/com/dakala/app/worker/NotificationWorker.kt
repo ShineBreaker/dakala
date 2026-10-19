@@ -19,7 +19,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
-import com.dakala.app.data.local.entity.AppItem
+import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.appMonitorStatuses
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import com.dakala.app.ui.MainActivity
 import com.dakala.app.ui.util.PermissionHelper
@@ -151,33 +152,23 @@ class NotificationWorker @AssistedInject constructor(
     /**
      * 获取未完成打卡的应用
      */
-    private suspend fun getIncompleteApps(): List<IncompleteApp> = withContext(Dispatchers.IO) {
+    private suspend fun getIncompleteApps(): List<AppMonitorStatus> = withContext(Dispatchers.IO) {
         val database = AppUsageDatabase.getInstance(context)
         val appItemDao = database.appItemDao()
         val usageStatsUseCase = UsageStatsUseCase(context)
-        
+
         val monitoredApps = appItemDao.getMonitoredApps()
-        
-        monitoredApps.mapNotNull { app ->
-            val duration = usageStatsUseCase.getAppUsageDuration(app.packageName)
-            val isCompleted = duration >= app.durationThreshold
-            
-            if (!isCompleted) {
-                IncompleteApp(
-                    app = app,
-                    durationSeconds = duration,
-                    isOpened = duration > 0
-                )
-            } else {
-                null
-            }
-        }
+
+        // 一次批量查询今日使用时长，再筛选未完成的应用
+        val durations = usageStatsUseCase.getAppsUsageDuration(monitoredApps.map { it.packageName })
+
+        appMonitorStatuses(monitoredApps, durations).filterNot { it.isCompleted }
     }
 
     /**
      * 发送通知
      */
-    private suspend fun sendNotification(incompleteApps: List<IncompleteApp>) {
+    private suspend fun sendNotification(incompleteApps: List<AppMonitorStatus>) {
         // 创建通知渠道
         createNotificationChannel()
         
@@ -191,8 +182,8 @@ class NotificationWorker @AssistedInject constructor(
         }
         
         // 分组：未打开和时长不足
-        val notOpenedApps = incompleteApps.filter { !it.isOpened }
-        val insufficientApps = incompleteApps.filter { it.isOpened }
+        val notOpenedApps = incompleteApps.filter { !it.isOpenedToday }
+        val insufficientApps = incompleteApps.filter { it.isOpenedToday }
         
         // 构建通知内容
         val contentText = buildNotificationContent(notOpenedApps, insufficientApps)
@@ -226,21 +217,21 @@ class NotificationWorker @AssistedInject constructor(
      * 构建通知内容
      */
     private fun buildNotificationContent(
-        notOpenedApps: List<IncompleteApp>,
-        insufficientApps: List<IncompleteApp>
+        notOpenedApps: List<AppMonitorStatus>,
+        insufficientApps: List<AppMonitorStatus>
     ): String {
         val builder = StringBuilder()
         
         if (notOpenedApps.isNotEmpty()) {
             builder.append(context.getString(R.string.notification_content_not_opened,
-                notOpenedApps.joinToString("、") { it.app.appName }))
+                notOpenedApps.joinToString("、") { it.appItem.appName }))
         }
         
         if (insufficientApps.isNotEmpty()) {
             if (builder.isNotEmpty()) builder.append("\n")
             builder.append(context.getString(R.string.notification_content_insufficient,
-                insufficientApps.joinToString("、") { it.app.appName },
-                insufficientApps.first().durationSeconds / 60))
+                insufficientApps.joinToString("、") { it.appItem.appName },
+                insufficientApps.first().todayDurationSeconds / 60))
         }
         
         return builder.toString()
@@ -280,13 +271,4 @@ class NotificationWorker @AssistedInject constructor(
             scheduleDailyNotification(context, hour, minute)
         }
     }
-
-    /**
-     * 未完成应用数据类
-     */
-    data class IncompleteApp(
-        val app: AppItem,
-        val durationSeconds: Int,
-        val isOpened: Boolean
-    )
 }

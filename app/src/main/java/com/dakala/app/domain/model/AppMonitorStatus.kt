@@ -88,6 +88,27 @@ data class AppMonitorStatus(
 }
 
 /**
+ * 将受监控应用与今日使用时长映射为监控状态列表
+ *
+ * 供 UI、桌面小部件与通知路径共用同一份完成判定，避免各自重复实现。
+ * 输出顺序与 [apps] 一致。
+ *
+ * @param apps 受监控的应用列表
+ * @param durations 包名到今日使用时长（秒）的映射，缺失的包名按 0 处理
+ */
+fun appMonitorStatuses(
+    apps: List<AppItem>,
+    durations: Map<String, Int>
+): List<AppMonitorStatus> {
+    return apps.map { appItem ->
+        AppMonitorStatus(
+            appItem = appItem,
+            todayDurationSeconds = durations[appItem.packageName] ?: 0
+        )
+    }
+}
+
+/**
  * 监控状态分组
  * 
  * 将应用按完成状态分组，便于UI展示。
