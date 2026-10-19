@@ -20,8 +20,7 @@ import androidx.work.*
 import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.domain.model.AppMonitorStatus
-import com.dakala.app.domain.model.appMonitorStatuses
-import com.dakala.app.domain.usecase.UsageStatsUseCase
+import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.MainActivity
 import com.dakala.app.ui.util.PermissionHelper
 import com.dakala.app.widget.UsageWidgetProvider
@@ -153,16 +152,7 @@ class NotificationWorker @AssistedInject constructor(
      * 获取未完成打卡的应用
      */
     private suspend fun getIncompleteApps(): List<AppMonitorStatus> = withContext(Dispatchers.IO) {
-        val database = AppUsageDatabase.getInstance(context)
-        val appItemDao = database.appItemDao()
-        val usageStatsUseCase = UsageStatsUseCase(context)
-
-        val monitoredApps = appItemDao.getMonitoredApps()
-
-        // 一次批量查询今日使用时长，再筛选未完成的应用
-        val durations = usageStatsUseCase.getAppsUsageDuration(monitoredApps.map { it.packageName })
-
-        appMonitorStatuses(monitoredApps, durations).filterNot { it.isCompleted }
+        GetIncompleteAppsUseCase(context)()
     }
 
     /**

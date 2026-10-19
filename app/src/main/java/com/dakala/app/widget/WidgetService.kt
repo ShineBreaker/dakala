@@ -20,8 +20,7 @@ import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
-import com.dakala.app.domain.model.appMonitorStatuses
-import com.dakala.app.domain.usecase.UsageStatsUseCase
+import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.runBlocking
 import java.io.InputStream
@@ -53,7 +52,7 @@ class WidgetRemoteViewsFactory(
     }
 
     private var appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
-    private var apps: List<UsageWidgetProvider.AppParcelable> = emptyList()
+    private var apps: List<AppMonitorStatus> = emptyList()
 
     override fun onCreate() {
         appWidgetId = intent.getIntExtra(
@@ -85,27 +84,25 @@ class WidgetRemoteViewsFactory(
         val app = apps[position]
         val views = RemoteViews(context.packageName, R.layout.widget_item)
 
-        views.setTextViewText(R.id.app_name, app.appName)
+        views.setTextViewText(R.id.app_name, app.appItem.appName)
 
-        val statusText = if (app.isOpened) {
-            val minutes = app.durationSeconds / 60
-            val seconds = app.durationSeconds % 60
-            if (minutes > 0) "${minutes}分钟${seconds}秒" else "${seconds}秒"
+        val statusText = if (app.isOpenedToday) {
+            app.todayDurationFormatted
         } else {
             context.getString(R.string.status_not_opened)
         }
         views.setTextViewText(R.id.app_status, statusText)
 
         try {
-            val icon = context.packageManager.getApplicationIcon(app.packageName)
+            val icon = context.packageManager.getApplicationIcon(app.appItem.packageName)
             val bitmap = drawableToBitmap(icon)
             views.setImageViewBitmap(R.id.app_icon, bitmap)
         } catch (e: Exception) {
-            Log.e(TAG, "获取应用图标失败: ${app.packageName}", e)
+            Log.e(TAG, "获取应用图标失败: ${app.appItem.packageName}", e)
         }
 
         val fillInIntent = Intent().apply {
-            putExtra(UsageWidgetProvider.EXTRA_PACKAGE_NAME, app.packageName)
+            putExtra(UsageWidgetProvider.EXTRA_PACKAGE_NAME, app.appItem.packageName)
         }
         views.setOnClickFillInIntent(R.id.widget_item_root, fillInIntent)
 
@@ -117,37 +114,13 @@ class WidgetRemoteViewsFactory(
     override fun getItemId(position: Int): Long = position.toLong()
     override fun hasStableIds(): Boolean = false
 
-    private suspend fun getIncompleteApps(): List<UsageWidgetProvider.AppParcelable> {
+    private suspend fun getIncompleteApps(): List<AppMonitorStatus> {
         if (!PermissionHelper.checkUsageStatsPermission(context)) {
             Log.w(TAG, "无使用统计权限")
             return emptyList()
         }
 
-        val database = AppUsageDatabase.getInstance(context)
-        val appItemDao = database.appItemDao()
-        val usageStatsUseCase = UsageStatsUseCase(context)
-
-        val monitoredApps = appItemDao.getMonitoredApps()
-        Log.d(TAG, "获取到 ${monitoredApps.size} 个监控应用")
-
-        // 一次批量查询今日使用时长，再筛选未完成的应用
-        val durations = usageStatsUseCase.getAppsUsageDuration(monitoredApps.map { it.packageName })
-
-        return appMonitorStatuses(monitoredApps, durations)
-            .filterNot { it.isCompleted }
-            .map { it.toParcelable() }
-    }
-
-    /**
-     * 转换为列表项所需的数据
-     */
-    private fun AppMonitorStatus.toParcelable(): UsageWidgetProvider.AppParcelable {
-        return UsageWidgetProvider.AppParcelable(
-            packageName = appItem.packageName,
-            appName = appItem.appName,
-            durationSeconds = todayDurationSeconds,
-            isOpened = isOpenedToday
-        )
+        return GetIncompleteAppsUseCase(context)()
     }
 
     private fun drawableToBitmap(drawable: android.graphics.drawable.Drawable): Bitmap {

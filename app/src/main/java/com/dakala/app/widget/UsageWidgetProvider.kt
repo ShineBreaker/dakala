@@ -19,8 +19,7 @@ import com.dakala.app.data.local.entity.CustomCheckRecord
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
-import com.dakala.app.domain.model.appMonitorStatuses
-import com.dakala.app.domain.usecase.UsageStatsUseCase
+import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -271,7 +270,11 @@ class UsageWidgetProvider : AppWidgetProvider() {
         }
 
         // 应用打卡列表只查询一次，避免每个 widget id 重复取数
-        val incompleteApps = if (currentTab == 0) getIncompleteApps(context) else emptyList()
+        val incompleteApps = if (currentTab == 0) {
+            GetIncompleteAppsUseCase(context)()
+        } else {
+            emptyList()
+        }
 
         // 更新每个小部件
         for (appWidgetId in appWidgetIds) {
@@ -597,23 +600,6 @@ class UsageWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * 获取未完成打卡的应用列表
-     */
-    private suspend fun getIncompleteApps(context: Context): List<AppMonitorStatus> {
-        val database = AppUsageDatabase.getInstance(context)
-        val appItemDao = database.appItemDao()
-        val usageStatsUseCase = UsageStatsUseCase(context)
-
-        // 获取所有被监控的应用
-        val monitoredApps = appItemDao.getMonitoredApps()
-
-        // 一次批量查询今日使用时长，再筛选未完成的应用
-        val durations = usageStatsUseCase.getAppsUsageDuration(monitoredApps.map { it.packageName })
-
-        return appMonitorStatuses(monitoredApps, durations).filterNot { it.isCompleted }
-    }
-
-    /**
      * 获取自定义打卡项列表
      */
     private suspend fun getCustomCheckItems(context: Context): List<CustomCheckItemWithStatus> {
@@ -669,40 +655,4 @@ class UsageWidgetProvider : AppWidgetProvider() {
         val item: CustomCheckItem,
         val isCompleted: Boolean
     )
-
-    /**
-     * 可序列化的应用数据（用于 Intent 传递）
-     */
-    data class AppParcelable(
-        val packageName: String,
-        val appName: String,
-        val durationSeconds: Int,
-        val isOpened: Boolean
-    ) : android.os.Parcelable {
-        constructor(parcel: android.os.Parcel) : this(
-            parcel.readString() ?: "",
-            parcel.readString() ?: "",
-            parcel.readInt(),
-            parcel.readByte() != 0.toByte()
-        )
-
-        override fun writeToParcel(parcel: android.os.Parcel, flags: Int) {
-            parcel.writeString(packageName)
-            parcel.writeString(appName)
-            parcel.writeInt(durationSeconds)
-            parcel.writeByte(if (isOpened) 1 else 0)
-        }
-
-        override fun describeContents(): Int = 0
-
-        companion object CREATOR : android.os.Parcelable.Creator<AppParcelable> {
-            override fun createFromParcel(parcel: android.os.Parcel): AppParcelable {
-                return AppParcelable(parcel)
-            }
-
-            override fun newArray(size: Int): Array<AppParcelable?> {
-                return arrayOfNulls(size)
-            }
-        }
-    }
 }
