@@ -129,13 +129,13 @@
 
 <正文：为什么改>
 
-Co-authored-by: <宿主> (<模型>) <noreply@...>
+Assisted-by: <宿主> (<模型>) <noreply@...>
 ```
 
 - **subject**：动词开头、祈使语气、全小写、结尾不加句号。
 - **scope**：单文件改动用文件名，多文件改动用模块名。
 - **body**：空一行再写，写「为什么改」（动机、前提、取舍、未覆盖项），不重复 subject。
-- **AI 协作署名**：AI 参与时补 `Co-authored-by:` 尾注；NAME 按当轮 runtime 写「宿主 (模型)」，EMAIL 用该宿主的 noreply 地址；不要照抄历史提交里的署名快照。
+- **AI 协作署名**：AI 参与时补 `Assisted-by:` 尾注；NAME 按当轮 runtime 写「宿主 (模型)」，EMAIL 用该宿主的 noreply 地址；不要照抄历史提交里的署名快照。
 
 ## 克制原则
 
