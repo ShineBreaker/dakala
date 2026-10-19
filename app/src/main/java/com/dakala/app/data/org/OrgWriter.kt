@@ -17,7 +17,6 @@ import java.util.Locale
 object OrgWriter {
 
     private val STARS_PREFIX = Regex("^(\\*+[ \\t]+)")
-    private val PLANNING_LINE = Regex("^[ \\t]*(?:SCHEDULED|DEADLINE|CLOSED)[ \\t]*:")
     private val CLOSED_ENTRY = Regex("[ \\t]*CLOSED[ \\t]*:[ \\t]*\\[[^\\]\r\n]*\\][ \\t]*")
     private val LINE_INDENT = Regex("^[ \\t]*")
 
@@ -26,11 +25,27 @@ object OrgWriter {
     /**
      * 切换指定行的待办状态（TODO ↔ DONE）
      *
+     * 写回入口：状态工作流由 content 现场解析，保证与 content 同源。
+     *
+     * @param content 当前文件完整内容
+     * @param lineIndex 目标标题行行号（0 起始）
+     * @param now 当前时间（用于 CLOSED 时间戳，便于测试注入）
+     * @return 修改后的文件内容；若该行已不是带状态的标题则返回 null
+     */
+    fun toggleNote(
+        content: String,
+        lineIndex: Int,
+        now: LocalDateTime = LocalDateTime.now()
+    ): String? = toggleNote(content, lineIndex, OrgParser.parse(content).states, now)
+
+    /**
+     * 切换指定行的待办状态（TODO ↔ DONE）
+     *
      * 写回前会重新解析该行校验仍是合法待办标题，防止文件外部变更后误写。
      *
      * @param content 当前文件完整内容
      * @param lineIndex 目标标题行行号（0 起始）
-     * @param states 状态工作流
+     * @param states 状态工作流，需与 content 同源；单测与自定义工作流可显式传入
      * @param now 当前时间（用于 CLOSED 时间戳，便于测试注入）
      * @return 修改后的文件内容；若该行已不是带状态的标题则返回 null
      */
@@ -137,7 +152,4 @@ object OrgWriter {
     /** 拆分内容体与行尾 \r（兼容 CRLF） */
     private fun String.splitEol(): Pair<String, String> =
         if (endsWith("\r")) dropLast(1) to "\r" else this to ""
-
-    private fun String.stripEol(): String =
-        if (endsWith("\r")) dropLast(1) else this
 }

@@ -128,8 +128,7 @@ class OrgTodoRepository(
     suspend fun toggleNoteAtLine(lineIndex: Int): Boolean {
         val uri = currentUri() ?: return false
         val content = readContent(uri)
-        val states = OrgParser.parse(content).states
-        val newContent = OrgWriter.toggleNote(content, lineIndex, states) ?: return false
+        val newContent = OrgWriter.toggleNote(content, lineIndex) ?: return false
         writeContent(uri, newContent)
         Log.d(TAG, "切换待办状态: line=$lineIndex")
         return true

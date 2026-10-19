@@ -24,9 +24,6 @@ object OrgParser {
     // 整行仅为 tags（空标题）
     private val TAGS_ONLY = Regex("^:(\\S+):[ \\t]*$")
 
-    // Planning 行：空白 + SCHEDULED:|DEADLINE:|CLOSED: 开头
-    private val PLANNING_LINE = Regex("^[ \\t]*(?:SCHEDULED|DEADLINE|CLOSED)[ \\t]*:")
-
     // Planning 行中的单个条目：KEY: <...> 或 KEY: [...]
     private val PLANNING_ENTRY =
         Regex("(SCHEDULED|DEADLINE|CLOSED)[ \\t]*:[ \\t]*([\\[<][^\\]>\r\n]*[]>])")
@@ -61,7 +58,7 @@ object OrgParser {
      *
      * @return null 如果该行不是标题行
      */
-    fun parseNote(lines: List<String>, index: Int, states: OrgTodoStates): OrgNote? {
+    internal fun parseNote(lines: List<String>, index: Int, states: OrgTodoStates): OrgNote? {
         val match = HEADLINE.matchEntire(lines[index].stripEol()) ?: return null
         val level = match.groupValues[1].length
         var rest = match.groupValues[2]
@@ -195,8 +192,4 @@ object OrgParser {
 
     private fun splitTags(raw: String): List<String> =
         raw.split(':').filter { it.isNotEmpty() }
-
-    /** 去掉行尾的 \r（兼容 CRLF 文件） */
-    private fun String.stripEol(): String =
-        if (endsWith("\r")) dropLast(1) else this
 }
