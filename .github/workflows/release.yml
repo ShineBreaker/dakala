@@ -23,8 +23,8 @@ jobs:
           distribution: temurin
           java-version: "25"
 
-      - uses: android-actions/setup-android@v3
-
+      # ubuntu-latest 自带 Android SDK（license 已收）；
+      # 缺失的平台包由 AGP 经 sdkmanager 自动下载
       - uses: gradle/actions/setup-gradle@v4
 
       # 提取 docs/CHANGELOG.md 中本版本对应的段落作为 release notes
