@@ -65,6 +65,8 @@ data class AppSetting(
         const val KEY_NOTIFICATION_TIME = "notification_time"
         const val KEY_DEFAULT_DURATION_THRESHOLD = "default_duration_threshold"
         const val KEY_ORG_FILE_URI = "org_file_uri"
+        const val KEY_WIDGET_OPACITY = "widget_opacity"
+        const val KEY_WIDGET_TODO_SHOW_ALL = "widget_todo_show_all"
     }
 }
 

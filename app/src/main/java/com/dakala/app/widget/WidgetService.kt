@@ -12,11 +12,15 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.net.Uri
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.StrikethroughSpan
 import android.util.Log
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
+import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
@@ -55,6 +59,10 @@ class WidgetRemoteViewsFactory(
     private var appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
     private var apps: List<AppMonitorStatus> = emptyList()
 
+    // 调色板随每次数据刷新重建：factory 实例跨明暗切换存活，
+    // lazy 缓存会把深色色值带进浅色模式渲染
+    private var palette: WidgetPalette = WidgetPalette.current(context)
+
     override fun onCreate() {
         appWidgetId = intent.getIntExtra(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -65,6 +73,7 @@ class WidgetRemoteViewsFactory(
 
     override fun onDataSetChanged() {
         Log.d(TAG, "onDataSetChanged: 开始查询数据")
+        palette = WidgetPalette.current(context)
         apps = runBlocking {
             getIncompleteApps()
         }
@@ -86,6 +95,7 @@ class WidgetRemoteViewsFactory(
         val views = RemoteViews(context.packageName, R.layout.widget_item)
 
         views.setTextViewText(R.id.app_name, app.appItem.appName)
+        views.setTextColor(R.id.app_name, palette.onSurface)
 
         val statusText = if (app.isOpenedToday) {
             app.todayDurationFormatted
@@ -93,6 +103,7 @@ class WidgetRemoteViewsFactory(
             context.getString(R.string.status_not_opened)
         }
         views.setTextViewText(R.id.app_status, statusText)
+        views.setTextColor(R.id.app_status, palette.secondary)
 
         try {
             val icon = context.packageManager.getApplicationIcon(app.appItem.packageName)
@@ -158,6 +169,9 @@ class CustomCheckRemoteViewsFactory(
     private var appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
     private var items: List<UsageWidgetProvider.CustomCheckItemWithStatus> = emptyList()
 
+    // 调色板随每次数据刷新重建，避免跨明暗切换后用旧色值渲染
+    private var palette: WidgetPalette = WidgetPalette.current(context)
+
     override fun onCreate() {
         appWidgetId = intent.getIntExtra(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -168,6 +182,7 @@ class CustomCheckRemoteViewsFactory(
 
     override fun onDataSetChanged() {
         Log.d(TAG, "onDataSetChanged: 开始查询数据")
+        palette = WidgetPalette.current(context)
         items = runBlocking {
             getCustomCheckItems()
         }
@@ -220,11 +235,17 @@ class CustomCheckRemoteViewsFactory(
 
         // 设置名称
         views.setTextViewText(R.id.item_name, item.item.name)
+        views.setTextColor(R.id.item_name, palette.onSurface)
 
         // 设置打钩状态 - 未完成显示空心圆，已完成显示实心勾
         views.setImageViewResource(
             R.id.item_check,
             if (item.isCompleted) R.drawable.ic_check_filled else R.drawable.ic_check_outline
+        )
+        views.setInt(
+            R.id.item_check,
+            "setColorFilter",
+            if (item.isCompleted) palette.success else palette.secondary
         )
 
         // 设置点击事件
@@ -314,6 +335,9 @@ class TodoRemoteViewsFactory(
     private var appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
     private var notes: List<OrgNote> = emptyList()
 
+    // 调色板随每次数据刷新重建，避免跨明暗切换后用旧色值渲染
+    private var palette: WidgetPalette = WidgetPalette.current(context)
+
     override fun onCreate() {
         appWidgetId = intent.getIntExtra(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -324,8 +348,18 @@ class TodoRemoteViewsFactory(
 
     override fun onDataSetChanged() {
         Log.d(TAG, "onDataSetChanged: 开始读取 org 待办")
+        palette = WidgetPalette.current(context)
         notes = runBlocking { loadTodoNotes() }
         Log.d(TAG, "onDataSetChanged: 读取到 ${notes.size} 个待办")
+    }
+
+    /**
+     * 按用户设置过滤：缺省仅未完成；显示全部时未完成排前（组内保持文件顺序）
+     */
+    private suspend fun filterNotes(all: List<OrgNote>): List<OrgNote> {
+        val showAll = AppUsageDatabase.getInstance(context).appSettingDao()
+            .getSetting(AppSetting.KEY_WIDGET_TODO_SHOW_ALL).toBoolean()
+        return if (showAll) all.sortedBy { it.isDone } else all.filter { !it.isDone }
     }
 
     override fun onDestroy() {
@@ -347,22 +381,36 @@ class TodoRemoteViewsFactory(
             R.id.item_check,
             if (note.isDone) R.drawable.ic_check_filled else R.drawable.ic_check_outline
         )
+        views.setInt(
+            R.id.item_check,
+            "setColorFilter",
+            if (note.isDone) palette.success else palette.secondary
+        )
 
         // 状态关键字（未完成的用错误色，完成的用成功色）
         views.setTextViewText(R.id.todo_state, note.state)
         views.setTextColor(
             R.id.todo_state,
-            context.getColor(if (note.isDone) R.color.success else R.color.error)
+            if (note.isDone) palette.success else palette.error
         )
 
-        // 标题（按层级缩进）
+        // 标题（按层级缩进；完成态删除线 + 次级色，不靠降色保可读）
         val indent = "　".repeat((note.level - 1).coerceAtLeast(0))
-        views.setTextViewText(R.id.todo_title, indent + note.title)
-        if (note.isDone) {
-            views.setTextColor(R.id.todo_title, context.getColor(R.color.on_surface_variant))
-        } else {
-            views.setTextColor(R.id.todo_title, context.getColor(R.color.on_surface))
-        }
+        val title = indent + note.title
+        views.setTextViewText(
+            R.id.todo_title,
+            if (note.isDone) {
+                SpannableString(title).apply {
+                    setSpan(StrikethroughSpan(), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+            } else {
+                title
+            }
+        )
+        views.setTextColor(
+            R.id.todo_title,
+            if (note.isDone) palette.secondary else palette.onSurface
+        )
 
         // meta 行：tags + planning 时间
         val meta = buildList {
@@ -372,6 +420,7 @@ class TodoRemoteViewsFactory(
         }
         if (meta.isNotEmpty()) {
             views.setTextViewText(R.id.todo_meta, meta.joinToString(" "))
+            views.setTextColor(R.id.todo_meta, palette.secondary)
             views.setViewVisibility(R.id.todo_meta, android.view.View.VISIBLE)
         } else {
             views.setViewVisibility(R.id.todo_meta, android.view.View.GONE)
@@ -396,7 +445,7 @@ class TodoRemoteViewsFactory(
             val database = AppUsageDatabase.getInstance(context)
             val repository = OrgTodoRepository(context, database.appSettingDao())
             when (val result = repository.readTodos()) {
-                is OrgTodoRepository.ReadResult.Success -> result.file.notes
+                is OrgTodoRepository.ReadResult.Success -> filterNotes(result.file.notes)
                 else -> emptyList()
             }
         } catch (e: Exception) {

@@ -9,10 +9,8 @@ import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.domain.model.CustomCheckStatus
 import com.dakala.app.domain.model.DayStamp
-import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.model.StatusGroup
 import com.dakala.app.domain.usecase.UsageStatsUseCase
-import com.dakala.app.worker.NotificationWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -87,18 +85,6 @@ class MainViewModel @Inject constructor(
     )
 
     /**
-     * 通知时间
-     */
-    private val _notificationTime = MutableStateFlow(NotificationTime.DEFAULT)
-    val notificationTime: StateFlow<NotificationTime> = _notificationTime.asStateFlow()
-
-    /**
-     * 默认时长阈值（秒）
-     */
-    private val _defaultDurationThreshold = MutableStateFlow(600)
-    val defaultDurationThreshold: StateFlow<Int> = _defaultDurationThreshold.asStateFlow()
-
-    /**
      * 加载状态
      */
     private val _isLoading = MutableStateFlow(false)
@@ -107,8 +93,6 @@ class MainViewModel @Inject constructor(
     // ==================== 初始化 ====================
 
     init {
-        loadNotificationTime()
-        loadDefaultDurationThreshold()
         refreshUsageStats()
     }
 
@@ -177,54 +161,6 @@ class MainViewModel @Inject constructor(
             } finally {
                 _isLoading.value = false
             }
-        }
-    }
-
-    /**
-     * 加载通知时间设置
-     */
-    private fun loadNotificationTime() {
-        viewModelScope.launch {
-            _notificationTime.value = repository.getNotificationTime()
-        }
-    }
-
-    /**
-     * 设置通知时间
-     *
-     * 写入设置后立即按新时间重排通知任务：任务是一次性的、入队时即定死延迟，
-     * 不重排的话新时间要等旧任务下一次执行后才会生效。
-     *
-     * @param time 通知时间
-     */
-    fun setNotificationTime(time: NotificationTime) {
-        viewModelScope.launch {
-            repository.setNotificationTime(time)
-            NotificationWorker.scheduleDailyNotification(getApplication(), time.hour, time.minute)
-            _notificationTime.value = time
-            Log.d(TAG, "通知时间已设置为: ${time.format()}")
-        }
-    }
-
-    /**
-     * 加载默认时长阈值设置
-     */
-    private fun loadDefaultDurationThreshold() {
-        viewModelScope.launch {
-            _defaultDurationThreshold.value = repository.getDefaultDurationThreshold()
-        }
-    }
-
-    /**
-     * 设置默认时长阈值
-     *
-     * @param threshold 时长阈值（秒）
-     */
-    fun setDefaultDurationThreshold(threshold: Int) {
-        viewModelScope.launch {
-            repository.setDefaultDurationThreshold(threshold)
-            _defaultDurationThreshold.value = threshold
-            Log.d(TAG, "默认时长阈值已设置为: $threshold 秒")
         }
     }
 

@@ -12,8 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -27,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dakala.app.R
 import com.dakala.app.data.local.entity.CustomCheckItem
+import com.dakala.app.data.org.OrgNote
 import com.dakala.app.domain.model.AppMonitorStatus
-import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.ui.components.*
 import com.dakala.app.ui.theme.DakalaTheme
 import com.dakala.app.ui.util.PermissionHelper
@@ -97,7 +95,6 @@ fun MainScreen(
     val context = LocalContext.current
     val monitorStatusGroup by viewModel.monitorStatusGroup.collectAsState()
     val customCheckStatusGroup by viewModel.customCheckStatusGroup.collectAsState()
-    val notificationTime by viewModel.notificationTime.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val todoUiState by todoViewModel.uiState.collectAsState()
 
@@ -107,19 +104,9 @@ fun MainScreen(
     // 权限检查状态
     var hasPermission by remember { mutableStateOf(false) }
 
-    // 时间选择对话框状态
-    var showTimePicker by remember { mutableStateOf(false) }
-
     // 时长设置对话框状态
     var showDurationDialog by remember { mutableStateOf(false) }
     var selectedAppForDuration by remember { mutableStateOf<AppMonitorStatus?>(null) }
-
-    // 设置菜单状态
-    var showSettingsMenu by remember { mutableStateOf(false) }
-
-    // 默认时长设置对话框状态
-    var showDefaultDurationDialog by remember { mutableStateOf(false) }
-    val defaultDurationThreshold by viewModel.defaultDurationThreshold.collectAsState()
 
     // 自定义打卡对话框状态
     var showAddCustomCheckDialog by remember { mutableStateOf(false) }
@@ -129,6 +116,8 @@ fun MainScreen(
 
     // 待办对话框状态
     var showAddTodoDialog by remember { mutableStateOf(false) }
+    var editingTodo by remember { mutableStateOf<OrgNote?>(null) }
+    var deletingTodo by remember { mutableStateOf<OrgNote?>(null) }
 
     // Org 文件选择器
     val openOrgLauncher = rememberLauncherForActivityResult(
@@ -198,49 +187,16 @@ fun MainScreen(
                                 contentDescription = "刷新"
                             )
                         }
-                        // 设置菜单
-                        Box {
-                            IconButton(onClick = { showSettingsMenu = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "设置"
-                                )
+                        // 设置页入口
+                        IconButton(
+                            onClick = {
+                                context.startActivity(Intent(context, SettingsActivity::class.java))
                             }
-                            DropdownMenu(
-                                expanded = showSettingsMenu,
-                                onDismissRequest = { showSettingsMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("设置通知时间") },
-                                    onClick = {
-                                        showSettingsMenu = false
-                                        showTimePicker = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Notifications, contentDescription = null)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("设置默认时长") },
-                                    onClick = {
-                                        showSettingsMenu = false
-                                        showDefaultDurationDialog = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Settings, contentDescription = null)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.settings_select_org_file)) },
-                                    onClick = {
-                                        showSettingsMenu = false
-                                        pickOrgFile()
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Add, contentDescription = null)
-                                    }
-                                )
-                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "设置"
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -419,6 +375,7 @@ fun MainScreen(
                                 TodoList(
                                     notes = state.notes,
                                     onToggle = { note -> todoViewModel.toggleNote(note) },
+                                    onEdit = { note -> editingTodo = note },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -427,18 +384,6 @@ fun MainScreen(
                 }
             }
         }
-    }
-
-    // 时间选择对话框
-    if (showTimePicker) {
-        TimePickerDialog(
-            initialHour = notificationTime.hour,
-            initialMinute = notificationTime.minute,
-            onTimeSelected = { h, m ->
-                viewModel.setNotificationTime(NotificationTime(h, m))
-            },
-            onDismiss = { showTimePicker = false }
-        )
     }
 
     // 时长设置对话框
@@ -456,22 +401,6 @@ fun MainScreen(
             onDismiss = {
                 showDurationDialog = false
                 selectedAppForDuration = null
-            }
-        )
-    }
-
-    // 默认时长设置对话框
-    if (showDefaultDurationDialog) {
-        DurationThresholdDialog(
-            currentThreshold = defaultDurationThreshold,
-            title = "设置默认时长",
-            description = "新添加应用的默认目标时长",
-            onThresholdSelected = { seconds ->
-                viewModel.setDefaultDurationThreshold(seconds)
-                showDefaultDurationDialog = false
-            },
-            onDismiss = {
-                showDefaultDurationDialog = false
             }
         )
     }
@@ -509,6 +438,36 @@ fun MainScreen(
                 showAddTodoDialog = false
             },
             onDismiss = { showAddTodoDialog = false }
+        )
+    }
+
+    // 编辑待办对话框（点卡片进入；删除在其中二次确认）
+    editingTodo?.let { note ->
+        EditTodoDialog(
+            note = note,
+            allStates = (todoUiState as? TodoUiState.Ready)?.states?.allKeywords
+                ?: listOf("TODO", "DONE"),
+            onConfirm = { title, state, priority, tags, scheduled, deadline ->
+                todoViewModel.updateTodo(note, title, state, priority, tags, scheduled, deadline)
+                editingTodo = null
+            },
+            onDelete = {
+                deletingTodo = note
+                editingTodo = null
+            },
+            onDismiss = { editingTodo = null }
+        )
+    }
+
+    // 删除待办确认对话框
+    deletingTodo?.let { note ->
+        DeleteTodoDialog(
+            note = note,
+            onConfirm = {
+                todoViewModel.deleteTodo(note)
+                deletingTodo = null
+            },
+            onDismiss = { deletingTodo = null }
         )
     }
 

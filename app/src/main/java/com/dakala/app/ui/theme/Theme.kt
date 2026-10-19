@@ -67,8 +67,10 @@ private val CompletedBackground = Color(0xFFE8F5E9)
 
 /**
  * 浅色主题配色方案
+ *
+ * internal：小部件（WidgetPalette）在 API 29/30 回退时取同一份静态色。
  */
-private val LightColorScheme = lightColorScheme(
+internal val LightColorScheme = lightColorScheme(
     primary = Primary,
     onPrimary = OnPrimary,
     primaryContainer = PrimaryContainer,
@@ -96,8 +98,10 @@ private val LightColorScheme = lightColorScheme(
 
 /**
  * 深色主题配色方案
+ *
+ * internal：小部件（WidgetPalette）在 API 29/30 回退时取同一份静态色。
  */
-private val DarkColorScheme = darkColorScheme(
+internal val DarkColorScheme = darkColorScheme(
     primary = Primary,
     onPrimary = OnPrimary,
     primaryContainer = PrimaryContainer,

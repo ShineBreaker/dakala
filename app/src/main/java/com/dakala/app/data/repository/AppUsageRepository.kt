@@ -13,6 +13,7 @@ import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.local.entity.CustomCheckRecord
 import com.dakala.app.domain.model.DayStamp
 import com.dakala.app.domain.model.NotificationTime
+import com.dakala.app.domain.model.WidgetOpacity
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -142,6 +143,40 @@ class AppUsageRepository(
     suspend fun setDefaultDurationThreshold(threshold: Int) {
         Log.d(TAG, "设置默认时长阈值: $threshold 秒")
         appSettingDao.setSetting(AppSetting(AppSetting.KEY_DEFAULT_DURATION_THRESHOLD, threshold.toString()))
+    }
+
+    /**
+     * 获取小部件背景不透明度
+     *
+     * 存储格式（百分比字符串）与默认值回退都在 WidgetOpacity 内处理。
+     */
+    suspend fun getWidgetOpacity(): WidgetOpacity {
+        return WidgetOpacity.parse(appSettingDao.getSetting(AppSetting.KEY_WIDGET_OPACITY))
+    }
+
+    /**
+     * 设置小部件背景不透明度
+     *
+     * @param opacity 不透明度（百分比）
+     */
+    suspend fun setWidgetOpacity(opacity: WidgetOpacity) {
+        Log.d(TAG, "设置小部件不透明度: ${opacity.percent}%")
+        appSettingDao.setSetting(AppSetting(AppSetting.KEY_WIDGET_OPACITY, opacity.format()))
+    }
+
+    /**
+     * 小部件待办列表是否显示全部任务；缺省 false = 仅显示未完成
+     */
+    suspend fun getWidgetTodoShowAll(): Boolean {
+        return appSettingDao.getSetting(AppSetting.KEY_WIDGET_TODO_SHOW_ALL).toBoolean()
+    }
+
+    /**
+     * 设置小部件待办列表显示范围
+     */
+    suspend fun setWidgetTodoShowAll(showAll: Boolean) {
+        Log.d(TAG, "设置小部件待办显示范围: showAll=$showAll")
+        appSettingDao.setSetting(AppSetting(AppSetting.KEY_WIDGET_TODO_SHOW_ALL, showAll.toString()))
     }
 
     // ==================== 自定义打卡项相关操作 ====================

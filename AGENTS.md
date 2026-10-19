@@ -50,9 +50,11 @@ app/src/main/java/com/dakala/app/
 │   ├── util/             # UI 工具类
 │   ├── viewmodel/        # ViewModel 层
 │   ├── MainActivity.kt   # 主界面（@AndroidEntryPoint）
+│   ├── SettingsActivity.kt    # 设置页（@AndroidEntryPoint）
 │   └── AppSelectionActivity.kt  # 应用选择界面
 ├── widget/
 │   ├── UsageWidgetProvider.kt  # 桌面小组件
+│   ├── WidgetPalette.kt        # 小部件调色板（ColorScheme → ARGB）
 │   └── WidgetService.kt        # RemoteViewsService
 ├── worker/
 │   ├── NotificationWorker.kt   # 通知推送（WorkManager）
@@ -93,7 +95,7 @@ app/src/main/java/com/dakala/app/
 
 ## 测试
 
-当前仅 `app/src/test/` 下有 JVM 单元测试（JUnit 4）：`AppMonitorStatusTest`、`UsageStatsUseCaseTest`、`NotificationTimeTest`、`DayStampTest`、`OrgParserTest`、`OrgWriterTest`。`app/src/androidTest/` 源集不存在（`app/build.gradle.kts` 保留了 Espresso / Compose UI Test 依赖，但无设备测试）。
+当前仅 `app/src/test/` 下有 JVM 单元测试（JUnit 4）：`AppMonitorStatusTest`、`UsageStatsUseCaseTest`、`NotificationTimeTest`、`DayStampTest`、`WidgetOpacityTest`、`OrgParserTest`、`OrgWriterTest`。`app/src/androidTest/` 源集不存在（`app/build.gradle.kts` 保留了 Espresso / Compose UI Test 依赖，但无设备测试）。
 
 ## 文档
 
@@ -101,3 +103,4 @@ app/src/main/java/com/dakala/app/
 - `docs/GUIX_ANDROID_BUILD.md` — Guix 系统上构建 Android 的详细文档
 - `docs/CHANGELOG.md` — 版本变更日志
 - `docs/CONTRIBUTING.md` — 改进循环、候选卡、门禁与提交规范
+- `docs/DESIGN.md` — 视觉与交互设计原则（配色、明暗切换、小部件、设置页）

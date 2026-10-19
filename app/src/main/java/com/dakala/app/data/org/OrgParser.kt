@@ -12,9 +12,6 @@ package com.dakala.app.data.org
  */
 object OrgParser {
 
-    // 标题行：一个或多个星号 + 空白 + 内容（内容可为空）
-    private val HEADLINE = Regex("^(\\*+)[ \\t]+(.*)$")
-
     // 优先级：[#X] 后跟空白或行尾
     private val PRIORITY = Regex("^\\[#([A-Za-z])\\](?:[ \\t]+(.*))?$")
 
@@ -23,10 +20,6 @@ object OrgParser {
 
     // 整行仅为 tags（空标题）
     private val TAGS_ONLY = Regex("^:(\\S+):[ \\t]*$")
-
-    // Planning 行中的单个条目：KEY: <...> 或 KEY: [...]
-    private val PLANNING_ENTRY =
-        Regex("(SCHEDULED|DEADLINE|CLOSED)[ \\t]*:[ \\t]*([\\[<][^\\]>\r\n]*[]>])")
 
     // 文件内设置：#+KEY: value
     private val FILE_SETTING = Regex("^#\\+([A-Za-z0-9_]+):[ \\t]*(.*?)[ \\t]*$")

@@ -7,6 +7,7 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.net.toUri
+import com.dakala.app.R
 import com.dakala.app.data.local.dao.AppSettingDao
 import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.data.org.OrgParser
@@ -84,11 +85,33 @@ class OrgTodoRepository(
     }
 
     /**
-     * 获取 org 文件显示名
+     * 获取 org 文件的可读路径（用于设置页显示）
+     *
+     * SAF document URI 转 documentId（如 `primary:Documents/a/b.org`），
+     * 渲染为 `内部存储/Documents/a/b.org`；其他卷标保留原卷 id。
+     * 非 documents provider（syncthing 等）回退到 URI 路径或显示名。
      */
-    suspend fun getOrgFileName(): String? {
+    suspend fun getOrgFilePath(): String? {
         val uri = currentUri() ?: return null
-        return queryDisplayName(uri)
+        return try {
+            val docId = DocumentsContract.getDocumentId(uri)
+            val sep = docId.indexOf(':')
+            if (sep > 0) {
+                val volume = docId.substring(0, sep)
+                val rest = docId.substring(sep + 1)
+                val volumeLabel = if (volume == "primary") {
+                    context.getString(R.string.storage_primary)
+                } else {
+                    volume
+                }
+                "$volumeLabel/$rest"
+            } else {
+                docId
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "无法解析文件路径: $uri", e)
+            uri.lastPathSegment ?: queryDisplayName(uri)
+        }
     }
 
     // ==================== 读取 ====================
@@ -144,6 +167,52 @@ class OrgTodoRepository(
         val states = OrgParser.parse(content).states
         writeContent(uri, OrgWriter.appendNote(content, title, states))
         Log.d(TAG, "追加待办: $title")
+    }
+
+    /**
+     * 更新指定行待办的可编辑字段（标题/状态/优先级/tags/SCHEDULED/DEADLINE）
+     *
+     * 参数语义同 [OrgWriter.updateNote]：null 保持、空值清除、其他值替换。
+     *
+     * @return true 写入成功；false 目标行已失效（文件被外部修改）或字段非法
+     * @throws IOException / SecurityException 读写失败时抛出
+     */
+    @Throws(IOException::class, SecurityException::class)
+    suspend fun updateTodo(
+        lineIndex: Int,
+        title: String? = null,
+        state: String? = null,
+        priority: String? = null,
+        tags: List<String>? = null,
+        scheduled: String? = null,
+        deadline: String? = null
+    ): Boolean {
+        val uri = currentUri() ?: return false
+        val content = readContent(uri)
+        val states = OrgParser.parse(content).states
+        val newContent = OrgWriter.updateNote(
+            content, lineIndex, title, state, priority, tags, scheduled, deadline, states
+        ) ?: return false
+        writeContent(uri, newContent)
+        Log.d(TAG, "更新待办: line=$lineIndex")
+        return true
+    }
+
+    /**
+     * 删除指定行的待办条目
+     *
+     * @return true 写入成功；false 目标行已失效（文件被外部修改）
+     * @throws IOException / SecurityException 读写失败时抛出
+     */
+    @Throws(IOException::class, SecurityException::class)
+    suspend fun deleteTodo(lineIndex: Int): Boolean {
+        val uri = currentUri() ?: return false
+        val content = readContent(uri)
+        val states = OrgParser.parse(content).states
+        val newContent = OrgWriter.deleteNote(content, lineIndex, states) ?: return false
+        writeContent(uri, newContent)
+        Log.d(TAG, "删除待办: line=$lineIndex")
+        return true
     }
 
     // ==================== 私有方法 ====================

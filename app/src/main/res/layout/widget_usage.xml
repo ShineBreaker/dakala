@@ -1,98 +1,109 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
-    android:orientation="vertical"
-    android:padding="12dp">
+    android:layout_height="match_parent">
 
-    <!-- 标题栏 -->
+    <!-- 半透明背景层：颜色与透明度由 UsageWidgetProvider 按调色板设置 -->
+    <ImageView
+        android:id="@+id/widget_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_background" />
+
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <!-- 标题 -->
-        <TextView
-            android:id="@+id/widget_title"
-            android:layout_width="0dp"
+        <!-- 标题栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- 标题 -->
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/widget_title"
+                android:textColor="@color/on_surface"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <!-- Tab 切换按钮：仅文字染色区分选中态，无底框；待办排最前 -->
+            <TextView
+                android:id="@+id/btn_tab_todo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:text="@string/tab_todo"
+                android:textColor="@color/on_surface"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/btn_tab_app"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:text="@string/tab_app_check"
+                android:textColor="@color/on_surface"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/btn_tab_custom"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:text="@string/tab_custom_check"
+                android:textColor="@color/on_surface"
+                android:textSize="11sp" />
+
+            <!-- 刷新按钮 -->
+            <ImageButton
+                android:id="@+id/btn_refresh"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginStart="8dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/widget_refresh"
+                android:padding="4dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_refresh" />
+
+        </LinearLayout>
+
+        <!-- 内容列表 -->
+        <ListView
+            android:id="@+id/widget_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:text="@string/widget_title"
-            android:textColor="@color/on_surface"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:divider="@null"
+            android:dividerHeight="4dp"
+            android:paddingTop="8dp" />
 
-        <!-- Tab 切换按钮 -->
+        <!-- 空状态 -->
         <TextView
-            android:id="@+id/btn_tab_app"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/tab_background"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
-            android:text="@string/tab_app_check"
-            android:textColor="@color/on_surface"
-            android:textSize="11sp" />
-
-        <TextView
-            android:id="@+id/btn_tab_custom"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:background="@drawable/tab_background"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
-            android:text="@string/tab_custom_check"
-            android:textColor="@color/on_surface"
-            android:textSize="11sp" />
-
-        <TextView
-            android:id="@+id/btn_tab_todo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:background="@drawable/tab_background"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
-            android:text="@string/tab_todo"
-            android:textColor="@color/on_surface"
-            android:textSize="11sp" />
-
-        <!-- 刷新按钮 -->
-        <ImageButton
-            android:id="@+id/btn_refresh"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="8dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/widget_refresh"
-            android:padding="4dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_refresh" />
+            android:id="@+id/widget_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/widget_all_completed"
+            android:textColor="@color/on_surface_variant"
+            android:textSize="12sp"
+            android:visibility="gone" />
 
     </LinearLayout>
 
-    <!-- 内容列表 -->
-    <ListView
-        android:id="@+id/widget_list"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:divider="@null"
-        android:dividerHeight="4dp"
-        android:paddingTop="8dp" />
-
-    <!-- 空状态 -->
-    <TextView
-        android:id="@+id/widget_empty"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="@string/widget_all_completed"
-        android:textColor="@color/on_surface_variant"
-        android:textSize="12sp"
-        android:visibility="gone" />
-
-</LinearLayout>
+</FrameLayout>

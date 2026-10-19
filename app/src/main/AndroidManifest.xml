@@ -60,12 +60,20 @@
             android:exported="false"
             android:theme="@style/Theme.Dakala" />
 
+        <!-- 设置Activity -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Dakala" />
+
         <!-- 桌面小部件 -->
         <receiver
             android:name=".widget.UsageWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- 系统配置变化（深浅色切换等）时重绘小部件配色 -->
+                <action android:name="android.intent.action.CONFIGURATION_CHANGED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

@@ -45,7 +45,6 @@
     <string name="notification_channel_description">定时提醒您完成每日应用打卡目标</string>
 
     <!-- Org 待办 -->
-    <string name="settings_select_org_file">选择 Org 文件</string>
     <string name="todo_add">添加待办</string>
     <string name="todo_add_title">添加待办</string>
     <string name="todo_title_label">标题</string>
@@ -71,11 +70,44 @@
     <string name="search_hint">搜索应用</string>
     <string name="save">保存</string>
     <string name="cancel">取消</string>
+    <string name="delete">删除</string>
 
     <!-- 设置 -->
     <string name="default_notification_time">22:00</string>
     <string name="default_duration_threshold">10分钟</string>
     <string name="duration_threshold_label">时长阈值（分钟）</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_section_check">打卡</string>
+    <string name="settings_section_todo">待办</string>
+    <string name="settings_section_widget">小部件</string>
+    <string name="settings_section_permission">权限</string>
+    <string name="settings_monitored_apps">监控应用</string>
+    <string name="settings_monitored_apps_value">已选 %d 个应用</string>
+    <string name="settings_default_duration">默认打卡时长</string>
+    <string name="settings_org_file">Org 待办文件</string>
+    <string name="settings_org_file_none">未设置</string>
+    <string name="storage_primary">内部存储</string>
+    <string name="settings_widget_opacity">小部件透明度</string>
+    <string name="settings_widget_opacity_value">%d%%</string>
+    <string name="settings_widget_todos">小部件待办</string>
+    <string name="settings_widget_todos_all">全部任务（未完成在前）</string>
+    <string name="settings_widget_todos_incomplete">仅未完成</string>
+    <string name="todo_edit">编辑待办</string>
+    <string name="todo_state_label">状态</string>
+    <string name="todo_priority_label">优先级</string>
+    <string name="todo_priority_none">无</string>
+    <string name="todo_tags_label">标签</string>
+    <string name="todo_tags_hint">空格或逗号分隔</string>
+    <string name="todo_scheduled">计划时间</string>
+    <string name="todo_deadline">截止时间</string>
+    <string name="clear">清除</string>
+    <string name="not_set">未设置</string>
+    <string name="todo_delete">删除待办</string>
+    <string name="todo_delete_confirm">确定删除「%s」吗？该操作会直接修改 org 文件。</string>
+    <string name="settings_usage_permission">使用情况访问</string>
+    <string name="settings_permission_granted">已授权</string>
+    <string name="settings_permission_denied">未授权</string>
+    <string name="widget_opacity_dialog_title">小部件透明度</string>
 
     <!-- 时间选择 -->
     <string name="select_time">选择通知时间</string>

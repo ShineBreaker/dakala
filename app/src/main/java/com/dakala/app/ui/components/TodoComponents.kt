@@ -1,9 +1,12 @@
 package com.dakala.app.ui.components
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
@@ -11,11 +14,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.dakala.app.R
 import com.dakala.app.data.org.OrgNote
+import com.dakala.app.data.org.OrgWriter
+import com.dakala.app.data.org.parseOrgTimestamp
+import java.time.LocalDate
 
 /**
  * Org 待办列表组件
@@ -26,6 +33,7 @@ import com.dakala.app.data.org.OrgNote
 fun TodoList(
     notes: List<OrgNote>,
     onToggle: (OrgNote) -> Unit,
+    onEdit: (OrgNote) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val incomplete = notes.filter { !it.isDone }
@@ -44,7 +52,7 @@ fun TodoList(
                 )
             }
             items(incomplete, key = { it.lineIndex }) { note ->
-                TodoCard(note = note, onToggle = { onToggle(note) })
+                TodoCard(note = note, onToggle = { onToggle(note) }, onClick = { onEdit(note) })
             }
         }
 
@@ -57,7 +65,7 @@ fun TodoList(
                 )
             }
             items(done, key = { it.lineIndex }) { note ->
-                TodoCard(note = note, onToggle = { onToggle(note) })
+                TodoCard(note = note, onToggle = { onToggle(note) }, onClick = { onEdit(note) })
             }
         }
     }
@@ -70,9 +78,11 @@ fun TodoList(
 fun TodoCard(
     note: OrgNote,
     onToggle: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -201,6 +211,237 @@ fun AddTodoDialog(
                 enabled = title.isNotBlank()
             ) {
                 Text(stringResource(R.string.confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+/**
+ * 编辑待办对话框
+ *
+ * 可编辑字段：标题、状态、优先级（无/A/B/C）、tags、SCHEDULED、DEADLINE；
+ * 保存时整组字段一次性写回（org 文件是唯一数据源，对话框值即最终值）。
+ * 删除入口内嵌于本对话框（破坏性操作需二次确认）。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun EditTodoDialog(
+    note: OrgNote,
+    allStates: List<String>,
+    onConfirm: (
+        title: String,
+        state: String,
+        priority: String,
+        tags: List<String>,
+        scheduled: String,
+        deadline: String
+    ) -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var title by remember { mutableStateOf(note.title) }
+    var state by remember { mutableStateOf(note.state) }
+    var priority by remember { mutableStateOf(note.priority ?: "") }
+    var tagsText by remember { mutableStateOf(note.tags.joinToString(" ")) }
+    var scheduled by remember { mutableStateOf(note.scheduled ?: "") }
+    var deadline by remember { mutableStateOf(note.deadline ?: "") }
+
+    /** 弹出日期选择器；选中后保留原时间分量（若有），产出 org 主动时间戳 */
+    fun pickDate(current: String, onPicked: (String) -> Unit) {
+        val parsed = if (current.isNotEmpty()) parseOrgTimestamp(current) else null
+        val init = parsed?.first ?: LocalDate.now()
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                onPicked(
+                    OrgWriter.formatTimestamp(
+                        LocalDate.of(year, month + 1, day),
+                        parsed?.second
+                    )
+                )
+            },
+            init.year,
+            init.monthValue - 1,
+            init.dayOfMonth
+        ).show()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.todo_edit)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(stringResource(R.string.todo_title_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                DialogFieldLabel(stringResource(R.string.todo_state_label))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    allStates.forEach { keyword ->
+                        FilterChip(
+                            selected = keyword == state,
+                            onClick = { state = keyword },
+                            label = { Text(keyword) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                DialogFieldLabel(stringResource(R.string.todo_priority_label))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("", "A", "B", "C").forEach { p ->
+                        FilterChip(
+                            selected = priority == p,
+                            onClick = { priority = p },
+                            label = {
+                                Text(
+                                    if (p.isEmpty()) {
+                                        stringResource(R.string.todo_priority_none)
+                                    } else {
+                                        p
+                                    }
+                                )
+                            }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = tagsText,
+                    onValueChange = { tagsText = it },
+                    label = { Text(stringResource(R.string.todo_tags_label)) },
+                    placeholder = { Text(stringResource(R.string.todo_tags_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                PlanningRow(
+                    label = stringResource(R.string.todo_scheduled),
+                    value = scheduled,
+                    onPick = { pickDate(scheduled) { scheduled = it } },
+                    onClear = { scheduled = "" }
+                )
+                PlanningRow(
+                    label = stringResource(R.string.todo_deadline),
+                    value = deadline,
+                    onPick = { pickDate(deadline) { deadline = it } },
+                    onClear = { deadline = "" }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val tags = tagsText.split(Regex("[\\s,，:]+"))
+                        .filter { it.isNotEmpty() }
+                    onConfirm(title.trim(), state, priority, tags, scheduled, deadline)
+                },
+                enabled = title.isNotBlank()
+            ) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onDelete) {
+                    Text(
+                        text = stringResource(R.string.delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        }
+    )
+}
+
+/** 对话框内的小字段标签 */
+@Composable
+private fun DialogFieldLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+}
+
+/** SCHEDULED / DEADLINE 行：标签 + 当前日期（可点开重选）+ 清除 */
+@Composable
+private fun PlanningRow(
+    label: String,
+    value: String,
+    onPick: () -> Unit,
+    onClear: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onPick) {
+            Text(
+                if (value.isEmpty()) {
+                    stringResource(R.string.not_set)
+                } else {
+                    formatOrgTimestamp(value)
+                }
+            )
+        }
+        if (value.isNotEmpty()) {
+            TextButton(onClick = onClear) {
+                Text(stringResource(R.string.clear))
+            }
+        }
+    }
+}
+
+/**
+ * 删除待办二次确认对话框
+ */
+@Composable
+fun DeleteTodoDialog(
+    note: OrgNote,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.todo_delete)) },
+        text = {
+            Text(
+                stringResource(
+                    R.string.todo_delete_confirm,
+                    note.title.ifEmpty { stringResource(R.string.todo_untitled) }
+                )
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = stringResource(R.string.delete),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         },
         dismissButton = {

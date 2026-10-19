@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.org.OrgTodoStates
 import com.dakala.app.data.repository.OrgTodoRepository
+import com.dakala.app.widget.UsageWidgetProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -114,7 +115,7 @@ class TodoViewModel @Inject constructor(
             } finally {
                 _isWriting.value = false
             }
-            refresh()
+            reloadAfterWrite()
         }
     }
 
@@ -133,7 +134,76 @@ class TodoViewModel @Inject constructor(
             } finally {
                 _isWriting.value = false
             }
-            refresh()
+            reloadAfterWrite()
         }
+    }
+
+    /**
+     * 更新条目可编辑字段（标题/状态/优先级/tags/SCHEDULED/DEADLINE）
+     *
+     * @param title 新标题；null 表示不修改
+     * @param state 新状态关键字；null 表示不修改
+     * @param priority 新优先级；null 保持、"" 清除
+     * @param tags 新 tags；null 保持、空表清除
+     * @param scheduled 新 SCHEDULED 时间戳；null 保持、"" 清除
+     * @param deadline 新 DEADLINE 时间戳；null 保持、"" 清除
+     */
+    fun updateTodo(
+        note: OrgNote,
+        title: String?,
+        state: String?,
+        priority: String? = null,
+        tags: List<String>? = null,
+        scheduled: String? = null,
+        deadline: String? = null
+    ) {
+        if (_isWriting.value) return
+        viewModelScope.launch {
+            _isWriting.value = true
+            try {
+                val ok = orgRepository.updateTodo(
+                    note.lineIndex, title, state, priority, tags, scheduled, deadline
+                )
+                if (!ok) {
+                    Log.w(TAG, "条目行已失效: line=${note.lineIndex}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "更新待办失败", e)
+                _uiState.value = TodoUiState.Error(e.message ?: "写入失败", e is SecurityException)
+            } finally {
+                _isWriting.value = false
+            }
+            reloadAfterWrite()
+        }
+    }
+
+    /**
+     * 删除条目（标题 + planning + 正文，直到下一个标题）
+     */
+    fun deleteTodo(note: OrgNote) {
+        if (_isWriting.value) return
+        viewModelScope.launch {
+            _isWriting.value = true
+            try {
+                val ok = orgRepository.deleteTodo(note.lineIndex)
+                if (!ok) {
+                    Log.w(TAG, "条目行已失效: line=${note.lineIndex}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "删除待办失败", e)
+                _uiState.value = TodoUiState.Error(e.message ?: "写入失败", e is SecurityException)
+            } finally {
+                _isWriting.value = false
+            }
+            reloadAfterWrite()
+        }
+    }
+
+    /**
+     * 写操作后统一收口：重读文件 + 通知小部件重绘
+     */
+    private fun reloadAfterWrite() {
+        refresh()
+        UsageWidgetProvider.updateWidget(getApplication())
     }
 }

@@ -137,4 +137,153 @@ class OrgWriterTest {
             result
         )
     }
+
+    @Test
+    fun `update note replaces title only`() {
+        val content = "* TODO [#A] 旧标题 :tag1:\n"
+        val result = OrgWriter.updateNote(content, 0, title = "新标题", states = states, now = now)!!
+        assertEquals("* TODO [#A] 新标题 :tag1:\n", result)
+    }
+
+    @Test
+    fun `update note changes state and writes closed`() {
+        val content = "** TODO 任务\n"
+        val result = OrgWriter.updateNote(content, 0, state = "DONE", states = states, now = now)!!
+        assertEquals("** DONE 任务\nCLOSED: [2026-10-19 Mon 14:30]\n", result)
+    }
+
+    @Test
+    fun `update note to todo removes closed`() {
+        val content = "* DONE 任务\nCLOSED: [2026-10-19 Mon 14:30]\n"
+        val result = OrgWriter.updateNote(content, 0, state = "TODO", states = states, now = now)!!
+        assertEquals("* TODO 任务\n", result)
+    }
+
+    @Test
+    fun `update note same done side keeps closed`() {
+        val custom = OrgTodoStates(listOf("TODO"), listOf("DONE", "CANCELLED"))
+        val content = "* DONE 任务\nCLOSED: [2026-10-18 Sun 10:00]\n"
+        val result = OrgWriter.updateNote(content, 0, state = "CANCELLED", states = custom, now = now)!!
+        assertEquals("* CANCELLED 任务\nCLOSED: [2026-10-18 Sun 10:00]\n", result)
+    }
+
+    @Test
+    fun `update note rejects unknown state`() {
+        assertNull(OrgWriter.updateNote("* TODO 任务\n", 0, state = "NOPE", states = states, now = now))
+    }
+
+    @Test
+    fun `update note on non-todo returns null`() {
+        assertNull(OrgWriter.updateNote("* 普通标题\n", 0, title = "x", states = states, now = now))
+    }
+
+    @Test
+    fun `update note preserves spacing prefix`() {
+        val content = "*   TODO 任务\n"
+        val result = OrgWriter.updateNote(content, 0, title = "改", states = states, now = now)!!
+        assertEquals("*   TODO 改\n", result)
+    }
+
+    @Test
+    fun `update note sanitizes newline in title`() {
+        val content = "* TODO 任务\n"
+        val result = OrgWriter.updateNote(content, 0, title = "一行\n标题", states = states, now = now)!!
+        assertEquals("* TODO 一行 标题\n", result)
+    }
+
+    @Test
+    fun `update note sets and clears priority`() {
+        val content = "* TODO 任务\n"
+        assertEquals(
+            "* TODO [#B] 任务\n",
+            OrgWriter.updateNote(content, 0, priority = "B", states = states, now = now)
+        )
+        assertEquals(
+            "* TODO 任务\n",
+            OrgWriter.updateNote("* TODO [#A] 任务\n", 0, priority = "", states = states, now = now)
+        )
+        assertNull(OrgWriter.updateNote(content, 0, priority = "XY", states = states, now = now))
+    }
+
+    @Test
+    fun `update note replaces and clears tags`() {
+        val content = "* TODO 任务 :old:\n"
+        assertEquals(
+            "* TODO 任务 :a:b:\n",
+            OrgWriter.updateNote(content, 0, tags = listOf("a", "b"), states = states, now = now)
+        )
+        assertEquals(
+            "* TODO 任务\n",
+            OrgWriter.updateNote(content, 0, tags = emptyList(), states = states, now = now)
+        )
+    }
+
+    @Test
+    fun `update note adds scheduled to note without planning`() {
+        val content = "* TODO 任务\n正文\n"
+        val result = OrgWriter.updateNote(
+            content, 0, scheduled = "<2026-10-20 Tue>", states = states, now = now
+        )!!
+        assertEquals("* TODO 任务\nSCHEDULED: <2026-10-20 Tue>\n正文\n", result)
+    }
+
+    @Test
+    fun `update note rewrites planning keeping closed`() {
+        val content = "* DONE 任务\n  SCHEDULED: <2026-10-18 Sun> CLOSED: [2026-10-19 Mon 10:00]\n"
+        val result = OrgWriter.updateNote(
+            content, 0, scheduled = "", deadline = "2026-10-21", states = states, now = now
+        )!!
+        assertEquals(
+            "* DONE 任务\n  DEADLINE: <2026-10-21> CLOSED: [2026-10-19 Mon 10:00]\n",
+            result
+        )
+    }
+
+    @Test
+    fun `update note removing last planning entry deletes line`() {
+        val content = "* TODO 任务\nSCHEDULED: <2026-10-18 Sun>\n正文\n"
+        val result = OrgWriter.updateNote(
+            content, 0, scheduled = "", states = states, now = now
+        )!!
+        assertEquals("* TODO 任务\n正文\n", result)
+    }
+
+    @Test
+    fun `update note formats timestamp`() {
+        assertEquals(
+            "<2026-10-19 Mon>",
+            OrgWriter.formatTimestamp(java.time.LocalDate.of(2026, 10, 19))
+        )
+        assertEquals(
+            "<2026-10-19 Mon 08:05>",
+            OrgWriter.formatTimestamp(java.time.LocalDate.of(2026, 10, 19), java.time.LocalTime.of(8, 5))
+        )
+    }
+
+    @Test
+    fun `delete note removes headline and planning and body`() {
+        val content = "* TODO 保留\n* DONE 删除\n  CLOSED: [2026-10-18 Sun 10:00]\n正文行\n* TODO 保留2\n"
+        val result = OrgWriter.deleteNote(content, 1, states)!!
+        assertEquals("* TODO 保留\n* TODO 保留2\n", result)
+    }
+
+    @Test
+    fun `delete note keeps child headlines`() {
+        val content = "* TODO 父\n** TODO 子\n"
+        val result = OrgWriter.deleteNote(content, 0, states)!!
+        assertEquals("** TODO 子\n", result)
+    }
+
+    @Test
+    fun `delete note at end of file`() {
+        val content = "* TODO 保留\n* TODO 删除\n正文"
+        val result = OrgWriter.deleteNote(content, 1, states)!!
+        assertEquals("* TODO 保留", result)
+    }
+
+    @Test
+    fun `delete note on non-todo returns null`() {
+        assertNull(OrgWriter.deleteNote("* 普通标题\n", 0, states))
+        assertNull(OrgWriter.deleteNote("* TODO 任务\n", 5, states))
+    }
 }
