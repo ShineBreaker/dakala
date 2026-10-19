@@ -5,25 +5,25 @@
 ## 构建命令
 
 ```bash
-# Debug 构建（必须加 --no-configuration-cache）
+# Debug 构建（所有命令统一加 --no-configuration-cache）
 ./gradlew assembleDebug --no-configuration-cache
 
 # Release 构建（需要 keystore.properties + dakala.keystore）
 ./gradlew assembleRelease --no-configuration-cache
 
 # 测试（仅 JVM 单元测试，JUnit 4；无 androidTest 源集）
-./gradlew test
+./gradlew test --no-configuration-cache
 
 # 代码检查
-./gradlew ktlintCheck            # Kotlin 代码风格
-./gradlew lint                    # Android Lint（abortOnError=false）
+./gradlew ktlintCheck --no-configuration-cache   # Kotlin 代码风格
+./gradlew lint --no-configuration-cache          # Android Lint（abortOnError=false）
 ```
 
 ### 构建注意事项
 
-- **`--no-configuration-cache` 是必须的**，虽然 `gradle.properties` 设置了 `org.gradle.configuration-cache=true`，但实际构建因 AGP/WorkManager 插件兼容性问题必须禁用。
+- **统一加 `--no-configuration-cache`**：`gradle.properties` 设置了 `org.gradle.configuration-cache=true`，但构建历史上因 AGP/WorkManager 插件兼容性问题要求禁用；实测缓存命中时不带该参数也能通过，但 clean build 未验证，故所有构建与检查命令统一带上。
 - **JDK 25**（OpenJDK 25），AGP 9.1.1，compileSdk 36.1，minSdk 29，targetSdk 36。
-- **自定义 aapt2**：`tools/aapt2/aapt2` 是为 Guix/Nix 等 non-FHS Linux 打包的 wrapper，`gradlew` 自动导出 `aapt2FromMavenOverride` 环境变量。在标准 Linux 发行版上构建不影响。
+- **自定义 aapt2**：`tools/aapt2/aapt2` 是为 Guix/Nix 等 non-FHS Linux 打包的 wrapper，`gradlew` 通过 `GRADLE_OPTS` 传入系统属性 `-Dorg.gradle.project.android.aapt2FromMavenOverride` 指向它。在标准 Linux 发行版上构建不影响。
 - Release 签名文件（`keystore.properties`、`dakala.keystore`）已 gitignored，本地构建 debug 不需要。
 
 ## 项目结构
@@ -46,7 +46,7 @@ app/src/main/java/com/dakala/app/
 │   └── usecase/          # 用例（单职责，@Inject constructor）
 ├── ui/
 │   ├── components/       # 可复用 Compose 组件
-│   ├── theme/            # Material 3 主题（Color.kt, Theme.kt, Type.kt）
+│   ├── theme/            # Material 3 主题（Theme.kt, Typography.kt）
 │   ├── util/             # UI 工具类
 │   ├── viewmodel/        # ViewModel 层
 │   ├── MainActivity.kt   # 主界面（@AndroidEntryPoint）
@@ -72,10 +72,10 @@ app/src/main/java/com/dakala/app/
 
 ## 改进流程
 
-改代码前先读 `docs/CONTRIBUTING.md`（分区审计 → 独立复核 → 最小实施 → 门禁 → 提交）。
+改代码前先读 `docs/CONTRIBUTING.md`（分区审计 → 独立复核 → 最小实施 → 验收 → 门禁 → 提交）。
 
 - **门禁**：`./gradlew ktlintCheck test --no-configuration-cache` 必须绿才提交；交付前加跑 `./gradlew assembleDebug --no-configuration-cache`。
-- **提交**：约定式提交，类型表与格式来源为本机 `~/.config/git/gitmessage`；AI 协作时补 `Co-authored-by` 尾注。
+- **提交**：约定式提交；类型表来源为本机 `~/.config/git/gitmessage`，格式（header/body/署名）见 `docs/CONTRIBUTING.md`。
 
 ## 技术约束
 
