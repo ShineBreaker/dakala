@@ -29,22 +29,10 @@ data class AppMonitorStatus(
         get() = todayDurationSeconds >= appItem.durationThreshold
 
     /**
-     * 今日使用时长（分钟）
-     */
-    val todayDurationMinutes: Int
-        get() = todayDurationSeconds / 60
-
-    /**
      * 今日使用时长（格式化字符串）
      */
     val todayDurationFormatted: String
         get() = formatDuration(todayDurationSeconds)
-
-    /**
-     * 时长阈值（分钟）
-     */
-    val thresholdMinutes: Int
-        get() = appItem.durationThreshold / 60
 
     /**
      * 时长阈值（格式化字符串）
@@ -109,59 +97,6 @@ fun appMonitorStatuses(
 }
 
 /**
- * 监控状态分组
- * 
- * 将应用按完成状态分组，便于UI展示。
- * 
- * @property incompleteApps 未完成的应用列表
- * @property completedApps 已完成的应用列表
- */
-data class MonitorStatusGroup(
-    val incompleteApps: List<AppMonitorStatus> = emptyList(),
-    val completedApps: List<AppMonitorStatus> = emptyList()
-) {
-    /**
-     * 是否有未完成的应用
-     */
-    val hasIncompleteApps: Boolean
-        get() = incompleteApps.isNotEmpty()
-
-    /**
-     * 是否有已完成的应用
-     */
-    val hasCompletedApps: Boolean
-        get() = completedApps.isNotEmpty()
-
-    /**
-     * 是否为空（没有任何监控应用）
-     */
-    val isEmpty: Boolean
-        get() = incompleteApps.isEmpty() && completedApps.isEmpty()
-
-    /**
-     * 总应用数
-     */
-    val totalApps: Int
-        get() = incompleteApps.size + completedApps.size
-
-    /**
-     * 已完成应用数
-     */
-    val completedCount: Int
-        get() = completedApps.size
-
-    /**
-     * 完成率（0-100）
-     */
-    val completionRate: Float
-        get() = if (totalApps > 0) {
-            completedCount.toFloat() / totalApps
-        } else {
-            0f
-        }
-}
-
-/**
  * 自定义打卡状态UI模型
  *
  * 用于在UI层展示自定义打卡项的状态。
@@ -175,54 +110,34 @@ data class CustomCheckStatus(
 )
 
 /**
- * 自定义打卡状态分组
+ * 状态分组
  *
- * 将自定义打卡项按完成状态分组，便于UI展示。
+ * 按完成状态把条目分成两组，供 UI 展示；应用打卡（[AppMonitorStatus]）与
+ * 自定义打卡（[CustomCheckStatus]）共用同一分组规则。
  *
- * @property incompleteItems 未完成的打卡项列表
- * @property completedItems 已完成的打卡项列表
+ * @param T 分组条目类型
+ * @property incomplete 未完成的条目列表
+ * @property completed 已完成的条目列表
  */
-data class CustomCheckStatusGroup(
-    val incompleteItems: List<CustomCheckStatus> = emptyList(),
-    val completedItems: List<CustomCheckStatus> = emptyList()
+data class StatusGroup<T>(
+    val incomplete: List<T> = emptyList(),
+    val completed: List<T> = emptyList()
 ) {
     /**
-     * 是否有未完成的打卡项
+     * 是否有未完成的条目
      */
-    val hasIncompleteItems: Boolean
-        get() = incompleteItems.isNotEmpty()
+    val hasIncomplete: Boolean
+        get() = incomplete.isNotEmpty()
 
     /**
-     * 是否有已完成的打卡项
+     * 是否有已完成的条目
      */
-    val hasCompletedItems: Boolean
-        get() = completedItems.isNotEmpty()
+    val hasCompleted: Boolean
+        get() = completed.isNotEmpty()
 
     /**
-     * 是否为空（没有任何打卡项）
+     * 是否为空（没有任何条目）
      */
     val isEmpty: Boolean
-        get() = incompleteItems.isEmpty() && completedItems.isEmpty()
-
-    /**
-     * 总打卡项数
-     */
-    val totalItems: Int
-        get() = incompleteItems.size + completedItems.size
-
-    /**
-     * 已完成打卡项数
-     */
-    val completedCount: Int
-        get() = completedItems.size
-
-    /**
-     * 完成率（0-100）
-     */
-    val completionRate: Float
-        get() = if (totalItems > 0) {
-            completedCount.toFloat() / totalItems
-        } else {
-            0f
-        }
+        get() = incomplete.isEmpty() && completed.isEmpty()
 }

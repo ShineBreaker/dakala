@@ -10,10 +10,9 @@ import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.domain.model.CustomCheckStatus
-import com.dakala.app.domain.model.CustomCheckStatusGroup
 import com.dakala.app.domain.model.DayStamp
-import com.dakala.app.domain.model.MonitorStatusGroup
 import com.dakala.app.domain.model.NotificationTime
+import com.dakala.app.domain.model.StatusGroup
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import com.dakala.app.worker.NotificationWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -70,7 +69,7 @@ class MainViewModel @Inject constructor(
     /**
      * 监控状态分组（按完成状态分组）
      */
-    val monitorStatusGroup: StateFlow<MonitorStatusGroup> = combine(
+    val monitorStatusGroup: StateFlow<StatusGroup<AppMonitorStatus>> = combine(
         repository.getMonitoredAppsFlow(),
         _todayUsageMap
     ) { apps, usageMap ->
@@ -81,14 +80,14 @@ class MainViewModel @Inject constructor(
             )
         }
 
-        MonitorStatusGroup(
-            incompleteApps = statusList.filter { !it.isCompleted },
-            completedApps = statusList.filter { it.isCompleted }
+        StatusGroup(
+            incomplete = statusList.filter { !it.isCompleted },
+            completed = statusList.filter { it.isCompleted }
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = MonitorStatusGroup()
+        initialValue = StatusGroup()
     )
 
     /**
@@ -382,7 +381,7 @@ class MainViewModel @Inject constructor(
     /**
      * 自定义打卡状态分组
      */
-    val customCheckStatusGroup: StateFlow<CustomCheckStatusGroup> = combine(
+    val customCheckStatusGroup: StateFlow<StatusGroup<CustomCheckStatus>> = combine(
         repository.getCustomCheckItemsFlow(),
         _currentDate.flatMapLatest { date ->
             repository.getCustomCheckRecordsByDateFlow(date)
@@ -397,14 +396,14 @@ class MainViewModel @Inject constructor(
             )
         }
 
-        CustomCheckStatusGroup(
-            incompleteItems = statusList.filter { !it.isCompleted },
-            completedItems = statusList.filter { it.isCompleted }
+        StatusGroup(
+            incomplete = statusList.filter { !it.isCompleted },
+            completed = statusList.filter { it.isCompleted }
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = CustomCheckStatusGroup()
+        initialValue = StatusGroup()
     )
 
     /**

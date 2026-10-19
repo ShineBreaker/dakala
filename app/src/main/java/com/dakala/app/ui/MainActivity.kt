@@ -322,21 +322,21 @@ fun MainScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // 未完成区域
-                            if (monitorStatusGroup.hasIncompleteApps) {
+                            if (monitorStatusGroup.hasIncomplete) {
                                 item {
                                     SectionHeader(
                                         title = stringResource(R.string.incomplete_section),
-                                        count = monitorStatusGroup.incompleteApps.size
+                                        count = monitorStatusGroup.incomplete.size
                                     )
                                 }
-                                items(monitorStatusGroup.incompleteApps) { status ->
+                                items(monitorStatusGroup.incomplete) { status ->
                                     AppMonitorCard(
                                         status = status,
                                         onAppClick = { packageName ->
                                             openApp(context, packageName)
                                         },
                                         onSettingsClick = { packageName ->
-                                            selectedAppForDuration = monitorStatusGroup.incompleteApps.find { it.appItem.packageName == packageName }
+                                            selectedAppForDuration = monitorStatusGroup.incomplete.find { it.appItem.packageName == packageName }
                                             showDurationDialog = true
                                         }
                                     )
@@ -344,22 +344,22 @@ fun MainScreen(
                             }
 
                             // 已完成区域
-                            if (monitorStatusGroup.hasCompletedApps) {
+                            if (monitorStatusGroup.hasCompleted) {
                                 item {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     SectionHeader(
                                         title = stringResource(R.string.completed_section),
-                                        count = monitorStatusGroup.completedApps.size
+                                        count = monitorStatusGroup.completed.size
                                     )
                                 }
-                                items(monitorStatusGroup.completedApps) { status ->
+                                items(monitorStatusGroup.completed) { status ->
                                     AppMonitorCard(
                                         status = status,
                                         onAppClick = { packageName ->
                                             openApp(context, packageName)
                                         },
                                         onSettingsClick = { packageName ->
-                                            selectedAppForDuration = monitorStatusGroup.completedApps.find { it.appItem.packageName == packageName }
+                                            selectedAppForDuration = monitorStatusGroup.completed.find { it.appItem.packageName == packageName }
                                             showDurationDialog = true
                                         }
                                     )
@@ -378,9 +378,9 @@ fun MainScreen(
                             editingItem = item
                         },
                         onDelete = { itemId ->
-                            deletingItem = customCheckStatusGroup.incompleteItems
+                            deletingItem = customCheckStatusGroup.incomplete
                                 .find { it.item.id == itemId }?.item
-                                ?: customCheckStatusGroup.completedItems
+                                ?: customCheckStatusGroup.completed
                                     .find { it.item.id == itemId }?.item
                             showDeleteConfirmDialog = true
                         },

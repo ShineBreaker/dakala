@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.domain.model.CustomCheckStatus
-import com.dakala.app.domain.model.CustomCheckStatusGroup
+import com.dakala.app.domain.model.StatusGroup
 import java.io.InputStream
 
 /**
@@ -46,7 +46,7 @@ import java.io.InputStream
  */
 @Composable
 fun CustomCheckList(
-    statusGroup: CustomCheckStatusGroup,
+    statusGroup: StatusGroup<CustomCheckStatus>,
     onCheckToggle: (Int, Boolean) -> Unit,
     onEdit: (CustomCheckItem) -> Unit,
     onDelete: (Int) -> Unit,
@@ -64,14 +64,14 @@ fun CustomCheckList(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // 未完成区域
-            if (statusGroup.hasIncompleteItems) {
+            if (statusGroup.hasIncomplete) {
                 item {
                     SectionHeader(
                         title = "未完成",
-                        count = statusGroup.incompleteItems.size
+                        count = statusGroup.incomplete.size
                     )
                 }
-                items(statusGroup.incompleteItems) { status ->
+                items(statusGroup.incomplete) { status ->
                     CustomCheckCard(
                         status = status,
                         onCheckToggle = { onCheckToggle(status.item.id, true) },
@@ -82,15 +82,15 @@ fun CustomCheckList(
             }
 
             // 已完成区域
-            if (statusGroup.hasCompletedItems) {
+            if (statusGroup.hasCompleted) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     SectionHeader(
                         title = "已完成",
-                        count = statusGroup.completedItems.size
+                        count = statusGroup.completed.size
                     )
                 }
-                items(statusGroup.completedItems) { status ->
+                items(statusGroup.completed) { status ->
                     CustomCheckCard(
                         status = status,
                         onCheckToggle = { onCheckToggle(status.item.id, false) },
