@@ -93,7 +93,7 @@ app/src/main/java/com/dakala/app/
 
 ## 测试
 
-当前仅 `app/src/test/` 下有 JVM 单元测试（JUnit 4）：`AppMonitorStatusTest`、`UsageStatsUseCaseTest`、`OrgParserTest`、`OrgWriterTest`。`app/src/androidTest/` 源集不存在（`app/build.gradle.kts` 保留了 Espresso / Compose UI Test 依赖，但无设备测试）。
+当前仅 `app/src/test/` 下有 JVM 单元测试（JUnit 4）：`AppMonitorStatusTest`、`UsageStatsUseCaseTest`、`NotificationTimeTest`、`DayStampTest`、`OrgParserTest`、`OrgWriterTest`。`app/src/androidTest/` 源集不存在（`app/build.gradle.kts` 保留了 Espresso / Compose UI Test 依赖，但无设备测试）。
 
 ## 文档
 
