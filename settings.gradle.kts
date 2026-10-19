@@ -1,7 +1,7 @@
+// 阿里云镜像仅供本地构建（国内网络），CI（GitHub Actions 会注入 CI=true）
+// 上镜像曾毒化插件解析——CI 只走官方仓库
 pluginManagement {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -9,7 +9,11 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        if (System.getenv("CI") != "true") {
+            maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+            maven { url = uri("https://maven.aliyun.com/repository/google") }
+            maven { url = uri("https://maven.aliyun.com/repository/public") }
+        }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -21,10 +25,12 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
         google()
         mavenCentral()
+        if (System.getenv("CI") != "true") {
+            maven { url = uri("https://maven.aliyun.com/repository/google") }
+            maven { url = uri("https://maven.aliyun.com/repository/public") }
+        }
     }
 }
 
