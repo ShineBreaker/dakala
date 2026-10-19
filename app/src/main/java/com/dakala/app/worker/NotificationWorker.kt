@@ -19,7 +19,9 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
+import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.MainActivity
 import com.dakala.app.ui.util.PermissionHelper
@@ -251,14 +253,10 @@ class NotificationWorker @AssistedInject constructor(
     private suspend fun scheduleNextNotification() {
         withContext(Dispatchers.IO) {
             val database = AppUsageDatabase.getInstance(context)
-            val settingDao = database.appSettingDao()
-            val timeString = settingDao.getSetting("notification_time") ?: "22:00"
-            
-            val parts = timeString.split(":")
-            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 22
-            val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
-            
-            scheduleDailyNotification(context, hour, minute)
+            val time = NotificationTime.parse(
+                database.appSettingDao().getSetting(AppSetting.KEY_NOTIFICATION_TIME)
+            )
+            scheduleDailyNotification(context, time.hour, time.minute)
         }
     }
 }

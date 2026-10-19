@@ -12,6 +12,7 @@ import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.domain.model.CustomCheckStatus
 import com.dakala.app.domain.model.CustomCheckStatusGroup
 import com.dakala.app.domain.model.MonitorStatusGroup
+import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,8 +93,8 @@ class MainViewModel @Inject constructor(
     /**
      * 通知时间
      */
-    private val _notificationTime = MutableStateFlow("22:00")
-    val notificationTime: StateFlow<String> = _notificationTime.asStateFlow()
+    private val _notificationTime = MutableStateFlow(NotificationTime.DEFAULT)
+    val notificationTime: StateFlow<NotificationTime> = _notificationTime.asStateFlow()
 
     /**
      * 默认时长阈值（秒）
@@ -210,13 +211,13 @@ class MainViewModel @Inject constructor(
     /**
      * 设置通知时间
      *
-     * @param time 通知时间（格式：HH:mm）
+     * @param time 通知时间
      */
-    fun setNotificationTime(time: String) {
+    fun setNotificationTime(time: NotificationTime) {
         viewModelScope.launch {
             repository.setNotificationTime(time)
             _notificationTime.value = time
-            Log.d(TAG, "通知时间已设置为: $time")
+            Log.d(TAG, "通知时间已设置为: ${time.format()}")
         }
     }
 

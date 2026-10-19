@@ -28,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.dakala.app.R
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.ui.components.*
 import com.dakala.app.ui.theme.DakalaTheme
 import com.dakala.app.ui.util.PermissionHelper
@@ -180,12 +181,6 @@ fun MainScreen(
         if (selectedTab == CheckTab.ORG_TODO) {
             todoViewModel.refresh()
         }
-    }
-
-    // 解析通知时间
-    val (hour, minute) = remember(notificationTime) {
-        val parts = notificationTime.split(":")
-        (parts.getOrNull(0)?.toIntOrNull() ?: 22) to (parts.getOrNull(1)?.toIntOrNull() ?: 0)
     }
 
     Scaffold(
@@ -437,11 +432,10 @@ fun MainScreen(
     // 时间选择对话框
     if (showTimePicker) {
         TimePickerDialog(
-            initialHour = hour,
-            initialMinute = minute,
+            initialHour = notificationTime.hour,
+            initialMinute = notificationTime.minute,
             onTimeSelected = { h, m ->
-                val timeString = String.format(java.util.Locale.US, "%02d:%02d", h, m)
-                viewModel.setNotificationTime(timeString)
+                viewModel.setNotificationTime(NotificationTime(h, m))
             },
             onDismiss = { showTimePicker = false }
         )

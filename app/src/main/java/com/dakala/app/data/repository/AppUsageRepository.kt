@@ -11,6 +11,7 @@ import com.dakala.app.data.local.entity.UsageRecord
 import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.local.entity.CustomCheckRecord
+import com.dakala.app.domain.model.NotificationTime
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
 
@@ -224,21 +225,22 @@ class AppUsageRepository(
 
     /**
      * 获取通知时间设置
-     * 
-     * @return 通知时间（格式：HH:mm），默认为22:00
+     *
+     * 存储格式（"HH:mm" 字符串）与默认值 22:00 的回退都在 NotificationTime 内处理，
+     * 调用方不接触原始字符串。
      */
-    suspend fun getNotificationTime(): String {
-        return appSettingDao.getSetting(AppSetting.KEY_NOTIFICATION_TIME) ?: "22:00"
+    suspend fun getNotificationTime(): NotificationTime {
+        return NotificationTime.parse(appSettingDao.getSetting(AppSetting.KEY_NOTIFICATION_TIME))
     }
 
     /**
      * 设置通知时间
-     * 
-     * @param time 通知时间（格式：HH:mm）
+     *
+     * @param time 通知时间
      */
-    suspend fun setNotificationTime(time: String) {
-        Log.d(TAG, "设置通知时间: $time")
-        appSettingDao.setSetting(AppSetting(AppSetting.KEY_NOTIFICATION_TIME, time))
+    suspend fun setNotificationTime(time: NotificationTime) {
+        Log.d(TAG, "设置通知时间: ${time.format()}")
+        appSettingDao.setSetting(AppSetting(AppSetting.KEY_NOTIFICATION_TIME, time.format()))
     }
 
     /**
