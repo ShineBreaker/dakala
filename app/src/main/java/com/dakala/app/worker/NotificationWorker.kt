@@ -29,6 +29,7 @@ import com.dakala.app.widget.UsageWidgetProvider
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -63,12 +64,16 @@ class NotificationWorker @AssistedInject constructor(
 
         /**
          * 调度每日通知任务
-         * 
+         *
+         * 入队时即计算初始延迟，因此必须在排期现场拿到用户设置的时间：
+         * 调用方一律传读到的设置值（或经 [scheduleFromSettings]），不得自带默认值——
+         * 本方法以 REPLACE 覆盖同名单任务，默认值会把用户改过的排期顶回 22:00。
+         *
          * @param context 上下文
          * @param hour 小时（0-23）
          * @param minute 分钟（0-59）
          */
-        fun scheduleDailyNotification(context: Context, hour: Int = 22, minute: Int = 0) {
+        fun scheduleDailyNotification(context: Context, hour: Int, minute: Int) {
             Log.d(TAG, "调度每日通知: $hour:$minute")
             
             // 计算到下次通知时间的延迟
@@ -108,11 +113,32 @@ class NotificationWorker @AssistedInject constructor(
         }
 
         /**
+         * 按设置表中的通知时间排期（应用启动、开机时的排期入口）
+         *
+         * 同步读一次设置再入队：广播接收器的进程可能在 onReceive 返回后被回收，
+         * 异步排期会丢失；这里只读一行设置，阻塞时长可忽略。
+         */
+        fun scheduleFromSettings(context: Context) {
+            runBlocking {
+                val time = readNotificationTime(context)
+                scheduleDailyNotification(context, time.hour, time.minute)
+            }
+        }
+
+        /**
          * 取消通知任务
          */
         fun cancelNotification(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
             Log.d(TAG, "通知任务已取消")
+        }
+
+        /**
+         * 读取设置表中的通知时间（IO）
+         */
+        private suspend fun readNotificationTime(context: Context): NotificationTime {
+            val settingDao = AppUsageDatabase.getInstance(context).appSettingDao()
+            return NotificationTime.parse(settingDao.getSetting(AppSetting.KEY_NOTIFICATION_TIME))
         }
     }
 
@@ -252,10 +278,7 @@ class NotificationWorker @AssistedInject constructor(
      */
     private suspend fun scheduleNextNotification() {
         withContext(Dispatchers.IO) {
-            val database = AppUsageDatabase.getInstance(context)
-            val time = NotificationTime.parse(
-                database.appSettingDao().getSetting(AppSetting.KEY_NOTIFICATION_TIME)
-            )
+            val time = readNotificationTime(context)
             scheduleDailyNotification(context, time.hour, time.minute)
         }
     }

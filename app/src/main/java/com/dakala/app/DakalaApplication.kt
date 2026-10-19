@@ -41,8 +41,8 @@ class DakalaApplication : Application(), Configuration.Provider {
         // 初始化WorkManager
         WorkManager.initialize(this, workManagerConfiguration)
 
-        // 调度默认通知（22:00）
-        NotificationWorker.scheduleDailyNotification(this)
+        // 按设置中的通知时间排期（用户改过时间的话不能被默认值覆盖）
+        NotificationWorker.scheduleFromSettings(this)
 
         // 调度小部件定期刷新
         WidgetRefreshWorker.schedulePeriodicRefresh(this)

@@ -24,8 +24,8 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             Log.d(TAG, "设备启动完成，重新调度任务")
 
-            // 重新调度每日通知
-            NotificationWorker.scheduleDailyNotification(context)
+            // 重新调度每日通知（按设置中的时间，用户改过的话不能被默认值覆盖）
+            NotificationWorker.scheduleFromSettings(context)
 
             // 调度小部件定期刷新
             WidgetRefreshWorker.schedulePeriodicRefresh(context)

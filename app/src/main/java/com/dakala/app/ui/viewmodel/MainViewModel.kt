@@ -14,6 +14,7 @@ import com.dakala.app.domain.model.CustomCheckStatusGroup
 import com.dakala.app.domain.model.MonitorStatusGroup
 import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.usecase.UsageStatsUseCase
+import com.dakala.app.worker.NotificationWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -211,11 +212,15 @@ class MainViewModel @Inject constructor(
     /**
      * 设置通知时间
      *
+     * 写入设置后立即按新时间重排通知任务：任务是一次性的、入队时即定死延迟，
+     * 不重排的话新时间要等旧任务下一次执行后才会生效。
+     *
      * @param time 通知时间
      */
     fun setNotificationTime(time: NotificationTime) {
         viewModelScope.launch {
             repository.setNotificationTime(time)
+            NotificationWorker.scheduleDailyNotification(getApplication(), time.hour, time.minute)
             _notificationTime.value = time
             Log.d(TAG, "通知时间已设置为: ${time.format()}")
         }
