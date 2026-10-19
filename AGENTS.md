@@ -11,9 +11,8 @@
 # Release 构建（需要 keystore.properties + dakala.keystore）
 ./gradlew assembleRelease --no-configuration-cache
 
-# 测试
-./gradlew test                    # 单元测试（JUnit 4）
-./gradlew connectedAndroidTest   # 设备测试（Espresso + Compose UI Test）
+# 测试（仅 JVM 单元测试，JUnit 4；无 androidTest 源集）
+./gradlew test
 
 # 代码检查
 ./gradlew ktlintCheck            # Kotlin 代码风格
@@ -23,7 +22,7 @@
 ### 构建注意事项
 
 - **`--no-configuration-cache` 是必须的**，虽然 `gradle.properties` 设置了 `org.gradle.configuration-cache=true`，但实际构建因 AGP/WorkManager 插件兼容性问题必须禁用。
-- **JDK 25**（OpenJDK 25），AGP 9.0.1，compileSdk 36.1，minSdk 29，targetSdk 36。
+- **JDK 25**（OpenJDK 25），AGP 9.1.1，compileSdk 36.1，minSdk 29，targetSdk 36。
 - **自定义 aapt2**：`tools/aapt2/aapt2` 是为 Guix/Nix 等 non-FHS Linux 打包的 wrapper，`gradlew` 自动导出 `aapt2FromMavenOverride` 环境变量。在标准 Linux 发行版上构建不影响。
 - Release 签名文件（`keystore.properties`、`dakala.keystore`）已 gitignored，本地构建 debug 不需要。
 
@@ -36,8 +35,9 @@ app/src/main/java/com/dakala/app/
 ├── data/
 │   ├── local/
 │   │   ├── dao/          # Room DAO 接口
-│   │   ├── database/     # AppDatabase (Room v3, fallbackToDestructiveMigration)
+│   │   ├── database/     # AppUsageDatabase (Room v3, fallbackToDestructiveMigration)
 │   │   └── entity/       # Room 实体
+│   ├── org/              # org 文件解析与写回（OrgParser、OrgWriter、OrgSyntax）
 │   └── repository/       # Repository 实现
 ├── di/
 │   └── AppModule.kt      # @Module: DataModule + DomainModule（Hilt）
@@ -68,7 +68,14 @@ app/src/main/java/com/dakala/app/
 - **ktlint 全局强制**：root `build.gradle.kts` 的 `subprojects` 块配置，`android=true`，`outputColorName=RED`。
 - `kotlin.code.style=official`（gradle.properties）。
 - 无 `.editorconfig`，无 detekt。
-- 提交前确保 `./gradlew ktlintCheck` 通过。
+- 提交前确保 `./gradlew ktlintCheck --no-configuration-cache` 通过。
+
+## 改进流程
+
+改代码前先读 `docs/CONTRIBUTING.md`（分区审计 → 独立复核 → 最小实施 → 门禁 → 提交）。
+
+- **门禁**：`./gradlew ktlintCheck test --no-configuration-cache` 必须绿才提交；交付前加跑 `./gradlew assembleDebug --no-configuration-cache`。
+- **提交**：约定式提交，类型表与格式来源为本机 `~/.config/git/gitmessage`；AI 协作时补 `Co-authored-by` 尾注。
 
 ## 技术约束
 
@@ -86,10 +93,11 @@ app/src/main/java/com/dakala/app/
 
 ## 测试
 
-当前仅 `app/src/test/` 下有少量单元测试（JUnit 4）。`app/src/androidTest/` 有 Espresso + Compose UI 测试框架配置。
+当前仅 `app/src/test/` 下有 JVM 单元测试（JUnit 4）：`AppMonitorStatusTest`、`UsageStatsUseCaseTest`、`OrgParserTest`、`OrgWriterTest`。`app/src/androidTest/` 源集不存在（`app/build.gradle.kts` 保留了 Espresso / Compose UI Test 依赖，但无设备测试）。
 
 ## 文档
 
 - `docs/BUILD.md` — 构建指南（含 Guix 环境特殊说明）
 - `docs/GUIX_ANDROID_BUILD.md` — Guix 系统上构建 Android 的详细文档
 - `docs/CHANGELOG.md` — 版本变更日志
+- `docs/CONTRIBUTING.md` — 改进循环、候选卡、门禁与提交规范
