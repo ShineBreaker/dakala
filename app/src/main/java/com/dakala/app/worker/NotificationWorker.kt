@@ -121,28 +121,26 @@ class NotificationWorker @AssistedInject constructor(
             // 检查权限
             if (!PermissionHelper.checkUsageStatsPermission(context)) {
                 Log.w(TAG, "无使用统计权限，跳过通知")
-                return Result.success()
+            } else {
+                // 获取未完成的应用
+                val incompleteApps = getIncompleteApps()
+
+                if (incompleteApps.isEmpty()) {
+                    Log.d(TAG, "所有应用都已完成打卡")
+                    // 更新小部件
+                    UsageWidgetProvider.updateWidget(context)
+                } else {
+                    // 发送通知
+                    sendNotification(incompleteApps)
+
+                    // 更新小部件
+                    UsageWidgetProvider.updateWidget(context)
+                }
             }
-            
-            // 获取未完成的应用
-            val incompleteApps = getIncompleteApps()
-            
-            if (incompleteApps.isEmpty()) {
-                Log.d(TAG, "所有应用都已完成打卡")
-                // 更新小部件
-                UsageWidgetProvider.updateWidget(context)
-                return Result.success()
-            }
-            
-            // 发送通知
-            sendNotification(incompleteApps)
-            
-            // 更新小部件
-            UsageWidgetProvider.updateWidget(context)
-            
-            // 调度明天的通知
+
+            // 调度明天的通知：本任务是一次性任务链的一环，任何成功路径都必须续期
             scheduleNextNotification()
-            
+
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "通知任务执行失败", e)
