@@ -1,10 +1,48 @@
 package com.dakala.app.domain.usecase
 
-import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.util.Log
 import java.util.Calendar
+
+/**
+ * 单个应用的使用统计桶
+ *
+ * 与 Android 的 UsageStats 解耦，只保留判定「今日有效桶」所需的字段，
+ * 使过滤逻辑可以在 JVM 单测中直接覆盖（含跨天边界）。
+ *
+ * @property packageName 应用包名
+ * @property firstTimeStamp 桶开始时间戳（毫秒）
+ * @property lastTimeStamp 桶结束时间戳（毫秒）
+ * @property totalTimeInForegroundMs 桶内前台使用时长（毫秒）
+ */
+internal data class UsageBucket(
+    val packageName: String,
+    val firstTimeStamp: Long,
+    val lastTimeStamp: Long,
+    val totalTimeInForegroundMs: Long
+)
+
+/**
+ * 在 [startTime, endTime] 范围内按包名选出最新的使用统计桶，并转换为秒
+ *
+ * 只保留完全落在查询范围内的桶，排除跨天的周/月/年大桶，
+ * 否则会把昨天的使用时长算进今天。
+ *
+ * @return 使用时长（秒），没有符合条件的桶时返回0
+ */
+internal fun List<UsageBucket>.latestDurationSeconds(
+    packageName: String,
+    startTime: Long,
+    endTime: Long
+): Int {
+    val latest = filter { it.packageName == packageName }
+        .filter { it.firstTimeStamp >= startTime && it.lastTimeStamp <= endTime }
+        .maxByOrNull { it.lastTimeStamp }
+
+    val millis = latest?.totalTimeInForegroundMs ?: return 0
+    return (millis / 1000).toInt()
+}
 
 /**
  * 应用使用统计用例
@@ -41,39 +79,33 @@ class UsageStatsUseCase(private val context: Context) {
     }
 
     /**
-     * 从UsageStats列表中筛选出真正属于今天本地时间范围的数据，
-     * 并按 lastTimeStamp 降序排序，确保取到最新的记录。
+     * 查询指定时间范围内的使用统计桶
+     *
+     * 使用 INTERVAL_BEST 获取最细粒度的数据，避免 INTERVAL_DAILY 的时区桶边界问题。
+     * 取不到 UsageStatsManager 服务（未授予 PACKAGE_USAGE_STATS）时返回null。
      */
-    private fun filterTodayStats(
-        usageStatsList: List<UsageStats>,
-        todayStart: Long,
-        todayEnd: Long,
-        packageName: String
-    ): UsageStats? {
-        val filtered = usageStatsList
-            .filter { it.packageName == packageName }
-            .filter {
-                // 排除跨日大桶（周/月/年），只保留今天开始的桶
-                it.firstTimeStamp >= todayStart && it.lastTimeStamp <= todayEnd
+    private fun queryBuckets(startTime: Long, endTime: Long): List<UsageBucket>? {
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: run {
+                Log.w(TAG, "无法获取UsageStatsManager服务")
+                return null
             }
-            .sortedByDescending { it.lastTimeStamp }
 
-        if (filtered.isEmpty()) {
-            Log.d(TAG, "未找到应用 $packageName 在今日 (${todayStart} ~ ${todayEnd}) 的使用统计")
-            return null
-        }
+        val usageStatsList = usageStatsManager.queryUsageStats(
+            UsageStatsManager.INTERVAL_BEST,
+            startTime,
+            endTime
+        )
+        Log.d(TAG, "queryUsageStats 返回 ${usageStatsList.size} 条记录")
 
-        // 打印所有匹配到的桶，用于调试时区/边界问题
-        filtered.forEachIndexed { index, stats ->
-            Log.d(
-                TAG,
-                "  [${index}] ${stats.packageName}: " +
-                    "bucket=${stats.firstTimeStamp}~${stats.lastTimeStamp}, " +
-                    "totalTime=${stats.totalTimeInForeground}ms"
+        return usageStatsList.map {
+            UsageBucket(
+                packageName = it.packageName,
+                firstTimeStamp = it.firstTimeStamp,
+                lastTimeStamp = it.lastTimeStamp,
+                totalTimeInForegroundMs = it.totalTimeInForeground
             )
         }
-
-        return filtered.first()
     }
 
     /**
@@ -86,33 +118,12 @@ class UsageStatsUseCase(private val context: Context) {
      * @return 使用时长（秒）
      */
     fun getAppUsageDuration(packageName: String): Int {
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: run {
-                Log.w(TAG, "无法获取UsageStatsManager服务")
-                return 0
-            }
-
         val (startTime, endTime) = getTodayTimeRange()
         Log.d(TAG, "查询 $packageName 的使用统计: 范围=${startTime}~${endTime}")
 
-        // 使用 INTERVAL_BEST 获取最细粒度的数据，避免 INTERVAL_DAILY 的时区桶边界问题
-        val usageStatsList: List<UsageStats> = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_BEST,
-            startTime,
-            endTime
-        )
+        val durationSeconds = (queryBuckets(startTime, endTime) ?: return 0)
+            .latestDurationSeconds(packageName, startTime, endTime)
 
-        Log.d(TAG, "queryUsageStats 返回 ${usageStatsList.size} 条记录")
-
-        val targetStats = filterTodayStats(usageStatsList, startTime, endTime, packageName)
-
-        if (targetStats == null) {
-            Log.d(TAG, "未找到应用 $packageName 今日有效使用统计")
-            return 0
-        }
-
-        // 将毫秒转换为秒
-        val durationSeconds = (targetStats.totalTimeInForeground / 1000).toInt()
         Log.d(TAG, "应用 $packageName 今日使用时长: ${durationSeconds}秒")
 
         return durationSeconds
@@ -127,109 +138,15 @@ class UsageStatsUseCase(private val context: Context) {
      * @return 包名到使用时长（秒）的映射
      */
     fun getAppsUsageDuration(packageNames: List<String>): Map<String, Int> {
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: run {
-                Log.w(TAG, "无法获取UsageStatsManager服务")
-                return emptyMap()
-            }
-
         val (startTime, endTime) = getTodayTimeRange()
         Log.d(TAG, "批量查询 ${packageNames.size} 个应用: 范围=${startTime}~${endTime}")
 
-        // 使用 INTERVAL_BEST 获取最细粒度的数据
-        val usageStatsList: List<UsageStats> = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_BEST,
-            startTime,
-            endTime
-        )
+        val buckets = queryBuckets(startTime, endTime) ?: return emptyMap()
 
-        Log.d(TAG, "queryUsageStats 返回 ${usageStatsList.size} 条记录")
-
-        // 对每个应用，找到最新的且与今天有重叠的统计桶
-        val result = mutableMapOf<String, Int>()
-        for (packageName in packageNames) {
-            val stats = filterTodayStats(usageStatsList, startTime, endTime, packageName)
-            val durationSeconds = if (stats != null) {
-                (stats.totalTimeInForeground / 1000).toInt()
-            } else {
-                0
-            }
-            result[packageName] = durationSeconds
+        return packageNames.associateWith { packageName ->
+            val durationSeconds = buckets.latestDurationSeconds(packageName, startTime, endTime)
             Log.d(TAG, "应用 $packageName 今日使用时长: ${durationSeconds}秒")
+            durationSeconds
         }
-
-        return result
-    }
-
-    /**
-     * 检查应用今日是否被打开过
-     * 
-     * @param packageName 应用包名
-     * @return 是否被打开过
-     */
-    fun isAppOpenedToday(packageName: String): Boolean {
-        return getAppUsageDuration(packageName) > 0
-    }
-
-    /**
-     * 获取今日所有有使用记录的应用
-     *
-     * @return 包名到使用时长（秒）的映射
-     */
-    fun getAllUsedAppsToday(): Map<String, Int> {
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: run {
-                Log.w(TAG, "无法获取UsageStatsManager服务")
-                return emptyMap()
-            }
-
-        val (startTime, endTime) = getTodayTimeRange()
-
-        // 使用 INTERVAL_BEST 获取最细粒度的数据
-        val usageStatsList: List<UsageStats> = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_BEST,
-            startTime,
-            endTime
-        )
-
-        // 只保留今天开始的桶，排除跨日大桶
-        return usageStatsList
-            .filter {
-                it.totalTimeInForeground > 0 &&
-                    it.firstTimeStamp >= startTime && it.lastTimeStamp <= endTime
-            }
-            .sortedByDescending { it.lastTimeStamp }
-            .distinctBy { it.packageName }
-            .associate { it.packageName to (it.totalTimeInForeground / 1000).toInt() }
-    }
-
-    /**
-     * 获取指定日期范围的应用使用时长
-     * 
-     * @param startTime 开始时间戳（毫秒）
-     * @param endTime 结束时间戳（毫秒）
-     * @return 包名到使用时长（秒）的映射
-     */
-    fun getAppsUsageDurationInRange(startTime: Long, endTime: Long): Map<String, Int> {
-        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: run {
-                Log.w(TAG, "无法获取UsageStatsManager服务")
-                return emptyMap()
-            }
-
-        val usageStatsList: List<UsageStats> = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_BEST,
-            startTime,
-            endTime
-        )
-
-        return usageStatsList
-            .filter {
-                it.totalTimeInForeground > 0 &&
-                    it.firstTimeStamp >= startTime && it.lastTimeStamp <= endTime
-            }
-            .sortedByDescending { it.lastTimeStamp }
-            .distinctBy { it.packageName }
-            .associate { it.packageName to (it.totalTimeInForeground / 1000).toInt() }
     }
 }
