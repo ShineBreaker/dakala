@@ -15,6 +15,8 @@ import com.dakala.app.data.org.OrgTodoFile
 import com.dakala.app.data.org.OrgWriter
 import java.io.FileNotFoundException
 import java.io.IOException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Org 待办文件仓库
@@ -33,6 +35,9 @@ class OrgTodoRepository(
     companion object {
         private const val TAG = "OrgTodoRepository"
         private const val BOM = '\uFEFF'
+
+        /** 跨实例写锁：UI 与小组件两个入口并发 read-modify-write 时，防止后写者用旧全文覆盖先完成者 */
+        private val WRITE_LOCK = Mutex()
     }
 
     /**
@@ -149,11 +154,13 @@ class OrgTodoRepository(
      */
     @Throws(IOException::class, SecurityException::class)
     suspend fun toggleNoteAtLine(lineIndex: Int): Boolean {
-        val uri = currentUri() ?: return false
-        val content = readContent(uri)
-        val newContent = OrgWriter.toggleNote(content, lineIndex) ?: return false
-        writeContent(uri, newContent)
-        Log.d(TAG, "切换待办状态: line=$lineIndex")
+        WRITE_LOCK.withLock {
+            val uri = currentUri() ?: return false
+            val content = readContent(uri)
+            val newContent = OrgWriter.toggleNote(content, lineIndex) ?: return false
+            writeContent(uri, newContent)
+            Log.d(TAG, "切换待办状态: line=$lineIndex")
+        }
         return true
     }
 
@@ -162,11 +169,13 @@ class OrgTodoRepository(
      */
     @Throws(IOException::class, SecurityException::class)
     suspend fun appendTodo(title: String) {
-        val uri = currentUri() ?: return
-        val content = readContent(uri)
-        val states = OrgParser.parse(content).states
-        writeContent(uri, OrgWriter.appendNote(content, title, states))
-        Log.d(TAG, "追加待办: $title")
+        WRITE_LOCK.withLock {
+            val uri = currentUri() ?: return
+            val content = readContent(uri)
+            val states = OrgParser.parse(content).states
+            writeContent(uri, OrgWriter.appendNote(content, title, states))
+            Log.d(TAG, "追加待办: $title")
+        }
     }
 
     /**
@@ -187,14 +196,16 @@ class OrgTodoRepository(
         scheduled: String? = null,
         deadline: String? = null
     ): Boolean {
-        val uri = currentUri() ?: return false
-        val content = readContent(uri)
-        val states = OrgParser.parse(content).states
-        val newContent = OrgWriter.updateNote(
-            content, lineIndex, title, state, priority, tags, scheduled, deadline, states
-        ) ?: return false
-        writeContent(uri, newContent)
-        Log.d(TAG, "更新待办: line=$lineIndex")
+        WRITE_LOCK.withLock {
+            val uri = currentUri() ?: return false
+            val content = readContent(uri)
+            val states = OrgParser.parse(content).states
+            val newContent = OrgWriter.updateNote(
+                content, lineIndex, title, state, priority, tags, scheduled, deadline, states
+            ) ?: return false
+            writeContent(uri, newContent)
+            Log.d(TAG, "更新待办: line=$lineIndex")
+        }
         return true
     }
 
@@ -206,12 +217,14 @@ class OrgTodoRepository(
      */
     @Throws(IOException::class, SecurityException::class)
     suspend fun deleteTodo(lineIndex: Int): Boolean {
-        val uri = currentUri() ?: return false
-        val content = readContent(uri)
-        val states = OrgParser.parse(content).states
-        val newContent = OrgWriter.deleteNote(content, lineIndex, states) ?: return false
-        writeContent(uri, newContent)
-        Log.d(TAG, "删除待办: line=$lineIndex")
+        WRITE_LOCK.withLock {
+            val uri = currentUri() ?: return false
+            val content = readContent(uri)
+            val states = OrgParser.parse(content).states
+            val newContent = OrgWriter.deleteNote(content, lineIndex, states) ?: return false
+            writeContent(uri, newContent)
+            Log.d(TAG, "删除待办: line=$lineIndex")
+        }
         return true
     }
 
