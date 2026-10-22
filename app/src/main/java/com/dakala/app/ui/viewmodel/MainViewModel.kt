@@ -12,6 +12,7 @@ import com.dakala.app.domain.model.DayStamp
 import com.dakala.app.domain.model.StatusGroup
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -137,9 +139,11 @@ class MainViewModel @Inject constructor(
                     _todayUsageMap.value = emptyMap()
                 }
 
-                // 批量获取使用时长
+                // 批量获取使用时长（binder 查询移出主线程）
                 val packageNames = monitoredApps.map { it.packageName }
-                val usageMap = usageStatsUseCase.getAppsUsageDuration(packageNames)
+                val usageMap = withContext(Dispatchers.IO) {
+                    usageStatsUseCase.getAppsUsageDuration(packageNames)
+                }
 
                 // 更新数据库记录
                 val today = DayStamp.today()

@@ -36,9 +36,17 @@ internal fun List<UsageBucket>.latestDurationSeconds(
     startTime: Long,
     endTime: Long
 ): Int {
-    val latest = filter { it.packageName == packageName }
-        .filter { it.firstTimeStamp >= startTime && it.lastTimeStamp <= endTime }
-        .maxByOrNull { it.lastTimeStamp }
+    // 单遍循环：同时判定包名与区间并追踪 lastTimeStamp 最大的桶，避免中间列表
+    var latest: UsageBucket? = null
+    for (bucket in this) {
+        if (bucket.packageName == packageName &&
+            bucket.firstTimeStamp >= startTime &&
+            bucket.lastTimeStamp <= endTime &&
+            (latest == null || bucket.lastTimeStamp > latest.lastTimeStamp)
+        ) {
+            latest = bucket
+        }
+    }
 
     val millis = latest?.totalTimeInForegroundMs ?: return 0
     return (millis / 1000).toInt()
@@ -138,13 +146,17 @@ class UsageStatsUseCase(private val context: Context) {
      * @return 包名到使用时长（秒）的映射
      */
     fun getAppsUsageDuration(packageNames: List<String>): Map<String, Int> {
+        if (packageNames.isEmpty()) return emptyMap()
+
         val (startTime, endTime) = getTodayTimeRange()
         Log.d(TAG, "批量查询 ${packageNames.size} 个应用: 范围=${startTime}~${endTime}")
 
         val buckets = queryBuckets(startTime, endTime) ?: return emptyMap()
+        val bucketsByPackage = buckets.groupBy(UsageBucket::packageName)
 
         return packageNames.associateWith { packageName ->
-            val durationSeconds = buckets.latestDurationSeconds(packageName, startTime, endTime)
+            val durationSeconds = bucketsByPackage[packageName].orEmpty()
+                .latestDurationSeconds(packageName, startTime, endTime)
             Log.d(TAG, "应用 $packageName 今日使用时长: ${durationSeconds}秒")
             durationSeconds
         }
