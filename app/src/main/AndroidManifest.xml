@@ -86,6 +86,14 @@
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
+        <!-- 小部件应用项跳转代理：透明转发到目标应用 -->
+        <activity
+            android:name=".widget.WidgetLaunchActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@style/Theme.Dakala.WidgetLaunch" />
+
         <!-- 开机启动接收器 -->
         <receiver
             android:name=".receiver.BootReceiver"

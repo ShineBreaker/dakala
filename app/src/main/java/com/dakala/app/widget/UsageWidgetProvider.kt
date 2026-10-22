@@ -45,7 +45,6 @@ class UsageWidgetProvider : AppWidgetProvider() {
     companion object {
         private const val TAG = "UsageWidgetProvider"
 
-        const val ACTION_APP_CLICKED = "com.dakala.app.ACTION_APP_CLICKED"
         const val ACTION_REFRESH = "com.dakala.app.ACTION_REFRESH_WIDGET"
         const val ACTION_TAB_SWITCH = "com.dakala.app.ACTION_TAB_SWITCH"
         const val ACTION_CUSTOM_CHECK_TOGGLE = "com.dakala.app.ACTION_CUSTOM_CHECK_TOGGLE"
@@ -105,12 +104,15 @@ class UsageWidgetProvider : AppWidgetProvider() {
     ) {
         Log.d(TAG, "onUpdate: 更新 ${appWidgetIds.size} 个小部件")
 
-        // 使用 runBlocking 同步更新小部件
-        kotlinx.coroutines.runBlocking {
+        // goAsync 延长广播生命周期，更新移入 IO 协程，避免 SAF/UsageStats 阻塞主线程
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
             try {
                 updateAllWidgets(context, appWidgetManager, appWidgetIds)
             } catch (e: Exception) {
                 Log.e(TAG, "更新小部件失败", e)
+            } finally {
+                pendingResult.finish()
             }
         }
     }
@@ -130,13 +132,6 @@ class UsageWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         when (intent.action) {
-            ACTION_APP_CLICKED -> {
-                // 处理应用点击事件
-                val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
-                if (!packageName.isNullOrEmpty()) {
-                    openApp(context, packageName)
-                }
-            }
             ACTION_TAB_SWITCH -> {
                 // 处理 Tab 切换事件
                 val tabIndex = intent.getIntExtra(EXTRA_TAB_INDEX, 0)
@@ -293,6 +288,20 @@ class UsageWidgetProvider : AppWidgetProvider() {
             emptyList()
         }
 
+        // 自定义打卡项与 org 待办同样只取一次（org 是全文件 SAF 读+解析，开销最大）
+        val customCheckItems = if (effectiveTab == 1) {
+            getCustomCheckItems(context)
+        } else {
+            emptyList()
+        }
+        val todoResult = if (effectiveTab != 0 && effectiveTab != 1) {
+            val database = AppUsageDatabase.getInstance(context)
+            val repository = OrgTodoRepository(context, database.appSettingDao())
+            repository.readTodos()
+        } else {
+            null
+        }
+
         // 更新每个小部件
         for (appWidgetId in appWidgetIds) {
             Log.d(TAG, "updateAllWidgets: 更新小部件 $appWidgetId, Tab=$effectiveTab")
@@ -304,13 +313,12 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 }
                 1 -> {
                     // 自定义打卡 Tab
-                    val customCheckItems = getCustomCheckItems(context)
                     Log.d(TAG, "updateAllWidgets: 获取到 ${customCheckItems.size} 个自定义打卡项")
                     updateCustomCheckWidget(context, appWidgetManager, appWidgetId, customCheckItems, opacity)
                 }
                 else -> {
-                    // Org 待办 Tab
-                    updateTodoWidget(context, appWidgetManager, appWidgetId, opacity)
+                    // Org 待办 Tab（effectiveTab 非 0/1，todoResult 必已取数）
+                    updateTodoWidget(context, appWidgetManager, appWidgetId, todoResult!!, opacity)
                 }
             }
         }
@@ -404,13 +412,15 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 v.setViewVisibility(R.id.widget_empty, android.view.View.GONE)
 
                 // 设置列表项点击模板 - 用于配合 setOnClickFillInIntent
-                val appClickIntent = Intent(context, UsageWidgetProvider::class.java).apply {
-                    action = ACTION_APP_CLICKED
+                // 必须是 Activity PendingIntent：广播接收器里 startActivity 在
+                // Android 10+ 会被后台启动限制拦截，由透明代理 Activity 转发
+                val launchProxyIntent = Intent(context, WidgetLaunchActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                val appClickPendingIntent = PendingIntent.getBroadcast(
+                val appClickPendingIntent = PendingIntent.getActivity(
                     context,
-                    appWidgetId,
-                    appClickIntent,
+                    appWidgetId + 7000,
+                    launchProxyIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 v.setPendingIntentTemplate(R.id.widget_list, appClickPendingIntent)
@@ -508,19 +518,17 @@ class UsageWidgetProvider : AppWidgetProvider() {
 
     /**
      * 更新 Org 待办小部件
+     *
+     * @param todoResult 循环外统一读取的 org 待办结果，多个部件实例共享一次 SAF 读+解析
      */
     @Suppress("DEPRECATION")
-    private suspend fun updateTodoWidget(
+    private fun updateTodoWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
+        todoResult: OrgTodoRepository.ReadResult,
         opacity: WidgetOpacity
     ) {
-        // 读取 org 文件待办
-        val database = AppUsageDatabase.getInstance(context)
-        val repository = OrgTodoRepository(context, database.appSettingDao())
-        val result = repository.readTodos()
-
         val views = createRemoteViews(context) { v, palette ->
             applyBaseTheme(v, palette, opacity)
 
@@ -550,7 +558,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
             )
             v.setOnClickPendingIntent(R.id.btn_refresh, refreshPendingIntent)
 
-            when (result) {
+            when (todoResult) {
                 is OrgTodoRepository.ReadResult.NoFile -> {
                     v.setViewVisibility(R.id.widget_list, android.view.View.GONE)
                     v.setViewVisibility(R.id.widget_empty, android.view.View.VISIBLE)
@@ -562,7 +570,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
                     v.setTextViewText(R.id.widget_empty, context.getString(R.string.widget_no_org_file))
                 }
                 is OrgTodoRepository.ReadResult.Success -> {
-                    if (result.file.notes.isEmpty()) {
+                    if (todoResult.file.notes.isEmpty()) {
                         v.setViewVisibility(R.id.widget_list, android.view.View.GONE)
                         v.setViewVisibility(R.id.widget_empty, android.view.View.VISIBLE)
                         v.setTextViewText(R.id.widget_empty, context.getString(R.string.widget_todo_empty))
@@ -649,21 +657,6 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 item = item,
                 isCompleted = item.id in completedItemIds
             )
-        }
-    }
-
-    /**
-     * 打开指定应用
-     */
-    private fun openApp(context: Context, packageName: String) {
-        try {
-            val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "打开应用失败: $packageName", e)
         }
     }
 

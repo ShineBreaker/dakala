@@ -22,6 +22,7 @@ import com.dakala.app.R
 import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.data.org.OrgNote
+import com.dakala.app.data.org.sortedForDisplay
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.domain.model.DayStamp
@@ -164,6 +165,9 @@ class CustomCheckRemoteViewsFactory(
 
     companion object {
         private const val TAG = "CustomCheckRemoteViewsFactory"
+
+        // 图标目标尺寸上限（px）：解码采样基准，24dp 容器在最高密度下也只需 96px
+        private const val ICON_TARGET_SIZE = 144
     }
 
     private var appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
@@ -171,6 +175,9 @@ class CustomCheckRemoteViewsFactory(
 
     // 调色板随每次数据刷新重建，避免跨明暗切换后用旧色值渲染
     private var palette: WidgetPalette = WidgetPalette.current(context)
+
+    // 圆角图标缓存：宿主滚动列表会反复回调 getViewAt，避免每行重复磁盘解码
+    private val iconCache = mutableMapOf<String, Bitmap>()
 
     override fun onCreate() {
         appWidgetId = intent.getIntExtra(
@@ -191,6 +198,7 @@ class CustomCheckRemoteViewsFactory(
 
     override fun onDestroy() {
         items = emptyList()
+        iconCache.clear()
     }
 
     override fun getCount(): Int = items.size
@@ -210,8 +218,9 @@ class CustomCheckRemoteViewsFactory(
             views.setViewVisibility(R.id.item_icon_image, android.view.View.VISIBLE)
             
             try {
-                val uri = Uri.parse(item.item.iconData)
-                val bitmap = loadRoundedBitmap(uri)
+                val iconData = item.item.iconData
+                val bitmap = iconCache[iconData]
+                    ?: loadRoundedBitmap(Uri.parse(iconData))?.also { iconCache[iconData] = it }
                 if (bitmap != null) {
                     views.setImageViewBitmap(R.id.item_icon_image, bitmap)
                 } else {
@@ -293,8 +302,18 @@ class CustomCheckRemoteViewsFactory(
      */
     private fun loadRoundedBitmap(uri: Uri): Bitmap? {
         return try {
+            // 先只读原图尺寸：按图标目标大小采样后再解码，
+            // 避免相机原图整张解码进内存并经 Binder 回传桌面进程
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, bounds)
+            }
+
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight)
+            }
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-            val bitmap = inputStream?.use { BitmapFactory.decodeStream(it) } ?: return null
+            val bitmap = inputStream?.use { BitmapFactory.decodeStream(it, null, options) } ?: return null
 
             // 创建圆角位图
             val size = minOf(bitmap.width, bitmap.height)
@@ -317,6 +336,19 @@ class CustomCheckRemoteViewsFactory(
             Log.e(TAG, "加载圆角图片失败", e)
             null
         }
+    }
+
+    /** 计算 2 的幂采样率，使解码结果仍不小于图标目标尺寸 */
+    private fun calculateInSampleSize(width: Int, height: Int): Int {
+        var inSampleSize = 1
+        if (width > ICON_TARGET_SIZE || height > ICON_TARGET_SIZE) {
+            val halfWidth = width / 2
+            val halfHeight = height / 2
+            while (halfWidth / inSampleSize >= ICON_TARGET_SIZE && halfHeight / inSampleSize >= ICON_TARGET_SIZE) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
     }
 }
 
@@ -354,12 +386,13 @@ class TodoRemoteViewsFactory(
     }
 
     /**
-     * 按用户设置过滤：缺省仅未完成；显示全部时未完成排前（组内保持文件顺序）
+     * 按用户设置过滤：缺省仅未完成；显示全部时未完成排前，
+     * 已完成按 CLOSED 完成时间从晚到早
      */
     private suspend fun filterNotes(all: List<OrgNote>): List<OrgNote> {
         val showAll = AppUsageDatabase.getInstance(context).appSettingDao()
             .getSetting(AppSetting.KEY_WIDGET_TODO_SHOW_ALL).toBoolean()
-        return if (showAll) all.sortedBy { it.isDone } else all.filter { !it.isDone }
+        return if (showAll) all.sortedForDisplay() else all.filter { !it.isDone }
     }
 
     override fun onDestroy() {
