@@ -1,5 +1,8 @@
 package com.dakala.app.data.org
 
+import java.time.LocalDateTime
+import java.time.LocalTime
+
 /**
  * Org 文件中的 TODO 状态工作流
  *
@@ -70,4 +73,26 @@ data class OrgTodoFile(
 
     val doneNotes: List<OrgNote>
         get() = notes.filter { it.isDone }
+}
+
+/**
+ * 完成时间：由 CLOSED 时间戳解析；无 CLOSED 或格式不可解析时为 null
+ */
+fun OrgNote.completionTime(): LocalDateTime? =
+    closed?.let { parseOrgTimestamp(it) }?.let { (date, time) ->
+        date.atTime(time ?: LocalTime.MIN)
+    }
+
+/**
+ * 列表展示顺序：未完成在前（保持文件内顺序），已完成在后按完成时间从晚到早；
+ * 无 CLOSED 的已完成条目排在最后，组内保持文件内顺序。
+ */
+fun List<OrgNote>.sortedForDisplay(): List<OrgNote> {
+    val (done, incomplete) = partition { it.isDone }
+    val orderedDone = done.sortedWith(
+        compareBy<OrgNote> { it.completionTime() == null }
+            .thenByDescending { it.completionTime() ?: LocalDateTime.MIN }
+            .thenBy { it.lineIndex }
+    )
+    return incomplete + orderedDone
 }

@@ -22,12 +22,14 @@ import com.dakala.app.R
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.org.OrgWriter
 import com.dakala.app.data.org.parseOrgTimestamp
+import com.dakala.app.data.org.sortedForDisplay
 import java.time.LocalDate
 
 /**
  * Org 待办列表组件
  *
- * 按完成状态分两组展示：未完成在前（保持文件内顺序），已完成在后。
+ * 按完成状态分两组展示：未完成在前（保持文件内顺序），已完成在后
+ * （按 CLOSED 完成时间从晚到早）。
  */
 @Composable
 fun TodoList(
@@ -36,8 +38,9 @@ fun TodoList(
     onEdit: (OrgNote) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val incomplete = notes.filter { !it.isDone }
-    val done = notes.filter { it.isDone }
+    val ordered = notes.sortedForDisplay()
+    val incomplete = ordered.filter { !it.isDone }
+    val done = ordered.filter { it.isDone }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
