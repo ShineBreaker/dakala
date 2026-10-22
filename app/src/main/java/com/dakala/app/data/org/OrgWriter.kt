@@ -52,25 +52,30 @@ object OrgWriter {
     /**
      * 切换指定行的待办状态（TODO ↔ DONE）
      *
-     * 写回前会重新解析该行校验仍是合法待办标题，防止文件外部变更后误写。
+     * 写回前会重新解析该行校验仍是合法待办标题；传入 [expected] 时进一步
+     * 校验该行条目的身份指纹与快照一致，防止文件外部修改行号平移后误改
+     * 恰好落到该行的另一条目。
      *
      * @param content 当前文件完整内容
      * @param lineIndex 目标标题行行号（0 起始）
      * @param states 状态工作流，需与 content 同源；单测与自定义工作流可显式传入
      * @param now 当前时间（用于 CLOSED 时间戳，便于测试注入）
-     * @return 修改后的文件内容；若该行已不是带状态的标题则返回 null
+     * @param expected 快照时的条目身份指纹；null 表示仅做待办标题校验
+     * @return 修改后的文件内容；若该行已不是带状态的标题或指纹不符则返回 null
      */
     fun toggleNote(
         content: String,
         lineIndex: Int,
         states: OrgTodoStates,
-        now: LocalDateTime = LocalDateTime.now()
+        now: LocalDateTime = LocalDateTime.now(),
+        expected: NoteIdentity? = null
     ): String? {
         val lines = content.split('\n').toMutableList()
         if (lineIndex !in lines.indices) return null
 
-        // 重新解析校验该行仍是待办标题
+        // 重新解析校验该行仍是待办标题，且身份与快照一致
         val note = OrgParser.parseNote(lines, lineIndex, states) ?: return null
+        if (expected != null && note.identity != expected) return null
 
         val (body, eol) = lines[lineIndex].splitEol()
         val prefix = STARS_PREFIX.find(body)?.value ?: return null

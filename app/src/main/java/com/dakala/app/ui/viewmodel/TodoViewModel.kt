@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.org.OrgTodoStates
+import com.dakala.app.data.org.identity
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.widget.UsageWidgetProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -105,7 +106,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             _isWriting.value = true
             try {
-                val ok = orgRepository.toggleNoteAtLine(note.lineIndex)
+                val ok = orgRepository.toggleNoteAtLine(note.lineIndex, note.identity)
                 if (!ok) {
                     Log.w(TAG, "条目行已失效: line=${note.lineIndex}")
                 }

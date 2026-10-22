@@ -76,6 +76,24 @@ data class OrgTodoFile(
 }
 
 /**
+ * 条目身份指纹：写回前确认目标行仍是快照时的那一条。
+ *
+ * 只含身份字段（状态/优先级/标题/tags），不含行号与 CLOSED 等派生状态：
+ * 外部（syncthing/Emacs）修改文件导致行号平移时，行号失效但身份可比对，
+ * 防止误改恰好平移到该行的另一条目。
+ */
+data class NoteIdentity(
+    val state: String,
+    val priority: String?,
+    val title: String,
+    val tags: List<String>
+)
+
+/** 提取条目身份指纹 */
+val OrgNote.identity: NoteIdentity
+    get() = NoteIdentity(state, priority, title, tags)
+
+/**
  * 完成时间：由 CLOSED 时间戳解析；无 CLOSED 或格式不可解析时为 null
  */
 fun OrgNote.completionTime(): LocalDateTime? =

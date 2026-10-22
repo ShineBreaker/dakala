@@ -75,6 +75,30 @@ class OrgWriterTest {
     }
 
     @Test
+    fun `toggle with matching identity succeeds`() {
+        val content = "* TODO [#A] 任务 :tag1:\n"
+        val identity = NoteIdentity("TODO", "A", "任务", listOf("tag1"))
+        val result = OrgWriter.toggleNote(content, 0, states, now, identity)!!
+        assertEquals("* DONE [#A] 任务 :tag1:\nCLOSED: [2026-10-19 Mon 14:30]\n", result)
+    }
+
+    @Test
+    fun `toggle with mismatched identity returns null`() {
+        // 模拟行平移：快照指纹是「任务」，该行实际是另一条目
+        val content = "* TODO 其他条目\n"
+        val identity = NoteIdentity("TODO", null, "任务", emptyList())
+        assertNull(OrgWriter.toggleNote(content, 0, states, now, identity))
+    }
+
+    @Test
+    fun `toggle with changed state returns null`() {
+        // 外部已把该条目改为 DONE，与快照的 TODO 不符，拒绝写回
+        val content = "* DONE 任务\n"
+        val identity = NoteIdentity("TODO", null, "任务", emptyList())
+        assertNull(OrgWriter.toggleNote(content, 0, states, now, identity))
+    }
+
+    @Test
     fun `toggle on invalid line returns null`() {
         assertNull(OrgWriter.toggleNote("* TODO 任务\n", 5, states, now))
         assertNull(OrgWriter.toggleNote("正文\n", 0, states, now))

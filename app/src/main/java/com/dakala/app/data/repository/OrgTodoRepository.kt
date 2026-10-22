@@ -10,6 +10,7 @@ import androidx.core.net.toUri
 import com.dakala.app.R
 import com.dakala.app.data.local.dao.AppSettingDao
 import com.dakala.app.data.local.entity.AppSetting
+import com.dakala.app.data.org.NoteIdentity
 import com.dakala.app.data.org.OrgParser
 import com.dakala.app.data.org.OrgTodoFile
 import com.dakala.app.data.org.OrgWriter
@@ -149,15 +150,19 @@ class OrgTodoRepository(
     /**
      * 切换指定行的待办状态
      *
+     * @param expected 快照时的条目身份指纹（UI 列表/小部件渲染数据提取），
+     *   行号因外部修改平移且指纹不符时拒绝写入
      * @return true 写入成功；false 目标行已失效（文件被外部修改）
      * @throws IOException / SecurityException 读写失败时抛出
      */
     @Throws(IOException::class, SecurityException::class)
-    suspend fun toggleNoteAtLine(lineIndex: Int): Boolean {
+    suspend fun toggleNoteAtLine(lineIndex: Int, expected: NoteIdentity? = null): Boolean {
         WRITE_LOCK.withLock {
             val uri = currentUri() ?: return false
             val content = readContent(uri)
-            val newContent = OrgWriter.toggleNote(content, lineIndex) ?: return false
+            val states = OrgParser.parse(content).states
+            val newContent = OrgWriter.toggleNote(content, lineIndex, states, expected = expected)
+                ?: return false
             writeContent(uri, newContent)
             Log.d(TAG, "切换待办状态: line=$lineIndex")
         }

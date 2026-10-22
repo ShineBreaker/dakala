@@ -13,6 +13,7 @@ import com.dakala.app.data.local.database.AppUsageDatabase
 import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.local.entity.CustomCheckRecord
+import com.dakala.app.data.org.NoteIdentity
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
@@ -37,8 +38,7 @@ import kotlinx.coroutines.launch
  * 5. Tab 切换：应用打卡 / 自定义打卡
  * 6. 定期自动刷新（通过WorkManager，每15分钟）
  * 7. 支持手动刷新按钮
- * 8. 屏幕解锁时自动刷新
- * 9. 深浅色切换时经 CONFIGURATION_CHANGED 重绘配色
+ * 8. 深浅色切换时经 CONFIGURATION_CHANGED 重绘配色
  */
 class UsageWidgetProvider : AppWidgetProvider() {
 
@@ -54,6 +54,12 @@ class UsageWidgetProvider : AppWidgetProvider() {
         const val EXTRA_ITEM_ID = "item_id"
         const val EXTRA_IS_COMPLETED = "is_completed"
         const val EXTRA_LINE_INDEX = "line_index"
+
+        // 待办条目身份指纹（tags 逗号连接），与 EXTRA_LINE_INDEX 一起用于写回校验
+        const val EXTRA_NOTE_STATE = "note_state"
+        const val EXTRA_NOTE_TITLE = "note_title"
+        const val EXTRA_NOTE_PRIORITY = "note_priority"
+        const val EXTRA_NOTE_TAGS = "note_tags"
 
         // SharedPreferences key for current tab
         private const val PREFS_NAME = "widget_prefs"
@@ -151,7 +157,7 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 // 处理待办状态切换事件
                 val lineIndex = intent.getIntExtra(EXTRA_LINE_INDEX, -1)
                 if (lineIndex >= 0) {
-                    toggleTodoNote(context, lineIndex)
+                    toggleTodoNote(context, lineIndex, noteIdentityFrom(intent))
                 }
             }
             ACTION_REFRESH -> {
@@ -223,15 +229,33 @@ class UsageWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * 切换 org 待办状态（写回 org 文件）
+     * 从点击 Intent 还原条目身份指纹；缺关键字段（旧版小部件视图）返回 null，
+     * 退化为仅行号校验
      */
-    private fun toggleTodoNote(context: Context, lineIndex: Int) {
+    private fun noteIdentityFrom(intent: Intent): NoteIdentity? {
+        val state = intent.getStringExtra(EXTRA_NOTE_STATE) ?: return null
+        val title = intent.getStringExtra(EXTRA_NOTE_TITLE) ?: return null
+        val tags = intent.getStringExtra(EXTRA_NOTE_TAGS)
+            ?.split(',')
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+        return NoteIdentity(state, intent.getStringExtra(EXTRA_NOTE_PRIORITY), title, tags)
+    }
+
+    /**
+     * 切换 org 待办状态（写回 org 文件）
+     *
+     * @param expected 渲染快照的条目身份指纹；行号平移且指纹不符时拒绝写入
+     */
+    private fun toggleTodoNote(context: Context, lineIndex: Int, expected: NoteIdentity?) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val database = AppUsageDatabase.getInstance(context)
                 val repository = OrgTodoRepository(context, database.appSettingDao())
-                repository.toggleNoteAtLine(lineIndex)
-                Log.d(TAG, "切换待办状态: lineIndex=$lineIndex")
+                val ok = repository.toggleNoteAtLine(lineIndex, expected)
+                if (!ok) {
+                    Log.w(TAG, "条目行已失效或指纹不符，拒绝写入: lineIndex=$lineIndex")
+                }
 
                 // 刷新小部件
                 val appWidgetManager = AppWidgetManager.getInstance(context)

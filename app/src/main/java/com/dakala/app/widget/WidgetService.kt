@@ -459,9 +459,15 @@ class TodoRemoteViewsFactory(
             views.setViewVisibility(R.id.todo_meta, android.view.View.GONE)
         }
 
-        // 点击切换状态
+        // 点击切换状态：附条目身份指纹，外部修改行号平移后拒绝误写
         val fillInIntent = Intent().apply {
             putExtra(UsageWidgetProvider.EXTRA_LINE_INDEX, note.lineIndex)
+            putExtra(UsageWidgetProvider.EXTRA_NOTE_STATE, note.state)
+            putExtra(UsageWidgetProvider.EXTRA_NOTE_TITLE, note.title)
+            note.priority?.let { putExtra(UsageWidgetProvider.EXTRA_NOTE_PRIORITY, it) }
+            if (note.tags.isNotEmpty()) {
+                putExtra(UsageWidgetProvider.EXTRA_NOTE_TAGS, note.tags.joinToString(","))
+            }
         }
         views.setOnClickFillInIntent(R.id.widget_item_root, fillInIntent)
 
