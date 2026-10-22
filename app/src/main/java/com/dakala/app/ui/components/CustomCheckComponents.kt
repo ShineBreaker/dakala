@@ -1,5 +1,7 @@
 package com.dakala.app.ui.components
 
+import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -39,7 +41,37 @@ import androidx.core.net.toUri
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.domain.model.CustomCheckStatus
 import com.dakala.app.domain.model.StatusGroup
-import java.io.InputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/** 卡片图标解码目标边长（px）：48dp 容器按 4x 密度上限 */
+private const val CARD_ICON_TARGET_PX = 192
+
+/** 对话框预览解码目标边长（px）：80dp 容器按 4x 密度上限 */
+private const val PREVIEW_ICON_TARGET_PX = 320
+
+/**
+ * 采样解码图片图标：先探 bounds 再按目标边长算 2 的幂采样率二次解码，
+ * 避免相机原图整张进内存；失败返回 null（调用方回退首字母）。
+ */
+private fun decodeSampledIcon(context: Context, uri: Uri, targetPx: Int): Bitmap? {
+    return try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        }
+        var sampleSize = 1
+        while (bounds.outWidth / (sampleSize * 2) >= targetPx && bounds.outHeight / (sampleSize * 2) >= targetPx) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, options)
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
 
 /**
  * 自定义打卡列表组件
@@ -148,14 +180,10 @@ fun CustomCheckCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (status.item.iconType == "image") {
-                    // 显示图片图标
-                    val bitmap = remember(status.item.iconData) {
-                        try {
-                            val uri = status.item.iconData.toUri()
-                            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-                            inputStream?.use { BitmapFactory.decodeStream(it) }
-                        } catch (e: Exception) {
-                            null
+                    // 显示图片图标：磁盘 IO 与解码移出组合线程
+                    val bitmap by produceState<Bitmap?>(initialValue = null, status.item.iconData) {
+                        value = withContext(Dispatchers.IO) {
+                            decodeSampledIcon(context, status.item.iconData.toUri(), CARD_ICON_TARGET_PX)
                         }
                     }
                     bitmap?.let {
@@ -270,11 +298,20 @@ fun AddCustomCheckDialog(
         }
     }
 
-    // 图片裁剪启动器
+    // 图片选择器：OpenDocument 可取得持久读授权，应用重启后图标不再失效；
+    // 存量临时授权 URI 不迁移，读取失败照旧回退首字母
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: SecurityException) {
+                // 个别 provider 不发持久授权：本次会话可用，重启后回退首字母
+            }
             selectedImageUri = it
             iconType = "image"
             iconData = it.toString()
@@ -395,12 +432,9 @@ fun AddCustomCheckDialog(
                     ) {
                         // 显示已选择的图片预览
                         selectedImageUri?.let { uri ->
-                            val bitmap = remember(uri) {
-                                try {
-                                    val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-                                    inputStream?.use { BitmapFactory.decodeStream(it) }
-                                } catch (e: Exception) {
-                                    null
+                            val bitmap by produceState<Bitmap?>(initialValue = null, uri) {
+                                value = withContext(Dispatchers.IO) {
+                                    decodeSampledIcon(context, uri, PREVIEW_ICON_TARGET_PX)
                                 }
                             }
                             bitmap?.let {
@@ -423,7 +457,7 @@ fun AddCustomCheckDialog(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = { imagePickerLauncher.launch("image/*") },
+                            onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(if (selectedImageUri != null) "更换图片" else "选择图片")
