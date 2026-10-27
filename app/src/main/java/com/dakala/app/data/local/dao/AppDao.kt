@@ -50,6 +50,12 @@ interface AppItemDao {
     suspend fun updateDurationThreshold(packageName: String, threshold: Int, timestamp: Long = System.currentTimeMillis())
 
     /**
+     * 更新应用的每日重置点（距零点分钟数）；null 表示恢复为跟随全局默认
+     */
+    @Query("UPDATE app_items SET resetTimeMinutes = :resetTimeMinutes, updatedAt = :timestamp WHERE packageName = :packageName")
+    suspend fun updateResetTime(packageName: String, resetTimeMinutes: Int?, timestamp: Long = System.currentTimeMillis())
+
+    /**
      * 事务：以传入列表为准同步监控列表
      *
      * 不在列表内的监控项被移除；列表中新增的项被插入。已监控的项保持原样，

@@ -36,7 +36,7 @@ import com.dakala.app.data.local.entity.CustomCheckRecord
         CustomCheckItem::class,
         CustomCheckRecord::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppUsageDatabase : RoomDatabase() {

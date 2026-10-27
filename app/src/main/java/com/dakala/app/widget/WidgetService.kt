@@ -25,11 +25,12 @@ import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.org.sortedForDisplay
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
-import com.dakala.app.domain.model.DayStamp
+import com.dakala.app.domain.model.DayResetTime
 import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.runBlocking
 import java.io.InputStream
+import java.time.Clock
 
 /**
  * 小部件列表服务
@@ -281,7 +282,9 @@ class CustomCheckRemoteViewsFactory(
             val allItems = customCheckItemDao.getAllItems()
             Log.d(TAG, "获取到 ${allItems.size} 个自定义打卡项")
 
-            val today = DayStamp.today()
+            val today = DayResetTime.parse(
+                database.appSettingDao().getSetting(AppSetting.KEY_DEFAULT_RESET_TIME)
+            ).dateKey(Clock.systemDefaultZone())
             val records = customCheckRecordDao.getRecordsByDate(today)
             val completedItemIds = records.filter { it.isCompleted }.map { it.itemId }.toSet()
 

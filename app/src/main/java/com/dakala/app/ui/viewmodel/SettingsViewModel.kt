@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.data.repository.OrgTodoRepository
+import com.dakala.app.domain.model.DayResetTime
 import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.model.WidgetOpacity
 import com.dakala.app.widget.UsageWidgetProvider
@@ -52,6 +53,12 @@ class SettingsViewModel @Inject constructor(
     val defaultDurationThreshold: StateFlow<Int> = _defaultDurationThreshold.asStateFlow()
 
     /**
+     * 全局默认重置时间
+     */
+    private val _defaultResetTime = MutableStateFlow(DayResetTime.DEFAULT)
+    val defaultResetTime: StateFlow<DayResetTime> = _defaultResetTime.asStateFlow()
+
+    /**
      * 已选监控应用数量
      */
     val monitoredAppCount: StateFlow<Int> = repository.getMonitoredAppsFlow()
@@ -87,6 +94,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _notificationTime.value = repository.getNotificationTime()
             _defaultDurationThreshold.value = repository.getDefaultDurationThreshold()
+            _defaultResetTime.value = repository.getDefaultResetTime()
             _orgFilePath.value = orgRepository.getOrgFilePath()
             _widgetOpacity.value = repository.getWidgetOpacity()
             _widgetTodoShowAll.value = repository.getWidgetTodoShowAll()
@@ -113,6 +121,20 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             repository.setDefaultDurationThreshold(threshold)
             _defaultDurationThreshold.value = threshold
+        }
+    }
+
+    /**
+     * 设置全局默认重置时间并刷新小部件
+     *
+     * 打卡周期边界变了，各应用「本周期」时长随之改变。
+     */
+    fun setDefaultResetTime(time: DayResetTime) {
+        viewModelScope.launch {
+            repository.setDefaultResetTime(time)
+            _defaultResetTime.value = time
+            UsageWidgetProvider.updateWidget(getApplication())
+            Log.d(TAG, "默认重置时间已设置为: ${time.format()}")
         }
     }
 

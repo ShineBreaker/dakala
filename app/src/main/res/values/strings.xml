@@ -112,4 +112,14 @@
     <!-- 时间选择 -->
     <string name="select_time">选择通知时间</string>
     <string name="confirm">确认</string>
+    <string name="done">完成</string>
+
+    <!-- 时长与重置时间滚轮 -->
+    <string name="duration_wheel_total">共 %s</string>
+    <string name="settings_default_reset_time">默认重置时间</string>
+    <string name="reset_time_dialog_title">重置时间</string>
+    <string name="reset_time_description">每天在该时间点重置打卡进度</string>
+    <string name="reset_time_follow_global">跟随全局（%s）</string>
+    <string name="app_check_settings_target">目标时长</string>
+    <string name="app_check_settings_reset">重置时间</string>
 </resources>

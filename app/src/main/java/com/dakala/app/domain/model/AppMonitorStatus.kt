@@ -59,17 +59,18 @@ data class AppMonitorStatus(
     companion object {
         /**
          * 格式化时长显示
-         * 
+         *
          * @param seconds 秒数
-         * @return 格式化后的字符串（如：10分钟30秒）
+         * @return 格式化后的字符串（如：1小时10分钟30秒）
          */
         fun formatDuration(seconds: Int): String {
-            val minutes = seconds / 60
+            val hours = seconds / 3600
+            val minutes = seconds % 3600 / 60
             val remainingSeconds = seconds % 60
-            return when {
-                minutes > 0 && remainingSeconds > 0 -> "${minutes}分钟${remainingSeconds}秒"
-                minutes > 0 -> "${minutes}分钟"
-                else -> "${remainingSeconds}秒"
+            return buildString {
+                if (hours > 0) append("${hours}小时")
+                if (minutes > 0) append("${minutes}分钟")
+                if (remainingSeconds > 0 || isEmpty()) append("${remainingSeconds}秒")
             }
         }
     }

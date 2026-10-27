@@ -17,13 +17,14 @@ import com.dakala.app.data.org.NoteIdentity
 import com.dakala.app.data.org.OrgNote
 import com.dakala.app.data.repository.OrgTodoRepository
 import com.dakala.app.domain.model.AppMonitorStatus
-import com.dakala.app.domain.model.DayStamp
+import com.dakala.app.domain.model.DayResetTime
 import com.dakala.app.domain.model.WidgetOpacity
 import com.dakala.app.domain.usecase.GetIncompleteAppsUseCase
 import com.dakala.app.ui.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.Clock
 
 /**
  * 应用使用状态桌面小部件
@@ -206,7 +207,9 @@ class UsageWidgetProvider : AppWidgetProvider() {
                 val database = AppUsageDatabase.getInstance(context)
                 val customCheckRecordDao = database.customCheckRecordDao()
 
-                val today = DayStamp.today()
+                val today = DayResetTime.parse(
+                    database.appSettingDao().getSetting(AppSetting.KEY_DEFAULT_RESET_TIME)
+                ).dateKey(Clock.systemDefaultZone())
                 val record = CustomCheckRecord(
                     itemId = itemId,
                     date = today,
@@ -671,8 +674,10 @@ class UsageWidgetProvider : AppWidgetProvider() {
         // 获取所有自定义打卡项
         val items = customCheckItemDao.getAllItems()
 
-        // 获取今日打卡记录
-        val today = DayStamp.today()
+        // 获取当前打卡周期的记录
+        val today = DayResetTime.parse(
+            database.appSettingDao().getSetting(AppSetting.KEY_DEFAULT_RESET_TIME)
+        ).dateKey(Clock.systemDefaultZone())
         val records = customCheckRecordDao.getRecordsByDate(today)
         val completedItemIds = records.filter { it.isCompleted }.map { it.itemId }.toSet()
 

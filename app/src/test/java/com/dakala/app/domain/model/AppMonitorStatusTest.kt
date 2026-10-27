@@ -80,5 +80,8 @@ class AppMonitorStatusTest {
         assertEquals("10分钟", AppMonitorStatus.formatDuration(600))
         assertEquals("45秒", AppMonitorStatus.formatDuration(45))
         assertEquals("0秒", AppMonitorStatus.formatDuration(0))
+        assertEquals("1小时", AppMonitorStatus.formatDuration(3600))
+        assertEquals("1小时5分钟", AppMonitorStatus.formatDuration(3900))
+        assertEquals("2小时10秒", AppMonitorStatus.formatDuration(7210))
     }
 }

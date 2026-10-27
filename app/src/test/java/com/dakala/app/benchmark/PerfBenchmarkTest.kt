@@ -4,8 +4,9 @@ import com.dakala.app.data.local.entity.AppItem
 import com.dakala.app.data.org.OrgParser
 import com.dakala.app.data.org.OrgWriter
 import com.dakala.app.domain.model.appMonitorStatuses
-import com.dakala.app.domain.usecase.UsageBucket
-import com.dakala.app.domain.usecase.latestDurationSeconds
+import com.dakala.app.domain.usecase.ForegroundEvent
+import com.dakala.app.domain.usecase.ForegroundEventKind
+import com.dakala.app.domain.usecase.foregroundSeconds
 import java.io.File
 import java.time.LocalDateTime
 import java.util.Random
@@ -30,7 +31,7 @@ import org.junit.Test
  * - OrgParser.parse：org 待办文件全量解析
  * - OrgWriter.toggleNote：打卡写回（行级改写；显式传入同源 states，
  *   全量 parse 的成本由 parse 基准单独承担）
- * - 使用时长→打卡聚合：latestDurationSeconds 批量过滤 + appMonitorStatuses
+ * - 使用时长→打卡聚合：foregroundSeconds 逐包事件聚合 + appMonitorStatuses
  *   映射与派生属性（GetIncompleteAppsUseCase 的纯 JVM 链路）
  */
 class PerfBenchmarkTest {
@@ -74,7 +75,7 @@ class PerfBenchmarkTest {
         // 固定输入的正确性校验（非耗时断言）
         assertEquals(60, medium.apps.size)
         assertEquals(200, large.apps.size)
-        assertTrue(medium.buckets.isNotEmpty())
+        assertTrue(medium.events.isNotEmpty())
 
         medianNanos("aggregate_usage_medium") { aggregateOnce(medium) }
         medianNanos("aggregate_usage_large") { aggregateOnce(large) }
@@ -95,10 +96,10 @@ class PerfBenchmarkTest {
         record(name, samples[samples.size / 2])
     }
 
-    /** 模拟 GetIncompleteAppsUseCase 的纯 JVM 链路：批量时长过滤 → 状态映射 → 派生属性与完成过滤 */
+    /** 模拟 GetIncompleteAppsUseCase 的纯 JVM 链路：逐包事件聚合 → 状态映射 → 派生属性与完成过滤 */
     private fun aggregateOnce(sample: UsageSample): Int {
         val durations = sample.apps.map { it.packageName }.associateWith { pkg ->
-            sample.buckets.latestDurationSeconds(pkg, sample.dayStart, sample.dayEnd)
+            sample.events.foregroundSeconds(pkg, sample.dayStart, sample.dayEnd)
         }
         val statuses = appMonitorStatuses(sample.apps, durations)
         var checksum = 0
@@ -172,10 +173,10 @@ class PerfBenchmarkTest {
         return OrgSample(sb.toString(), openLines[openLines.size / 2])
     }
 
-    /** 固定种子生成的使用时长聚合样本：受监控应用 + 混合桶（今日有效 / 跨天 / 无关包名） */
+    /** 固定种子生成的使用时长聚合样本：受监控应用 + 混合事件（窗口内 / 窗口前 / 无关包名） */
     private class UsageSample(
         val apps: List<AppItem>,
-        val buckets: List<UsageBucket>,
+        val events: List<ForegroundEvent>,
         val dayStart: Long,
         val dayEnd: Long
     )
@@ -196,33 +197,34 @@ class PerfBenchmarkTest {
             )
         }
         val packages = apps.map { it.packageName }
-        val buckets = mutableListOf<UsageBucket>()
+        val events = mutableListOf<ForegroundEvent>()
         for (app in apps) {
-            // 每个应用 4-7 个桶：三分之二落在今日范围内、其余跨天；十分之一换成别的包名
+            // 每个应用 4-7 对 RESUME/PAUSE：三分之二落在窗口内、其余在窗口前；
+            // 十分之一换成别的包名
             repeat(4 + random.nextInt(4)) {
                 val pkg = if (random.nextInt(10) == 0) packages[random.nextInt(packages.size)] else app.packageName
-                val first = if (random.nextInt(3) > 0) {
+                val resumeAt = if (random.nextInt(3) > 0) {
                     dayStart + random.nextInt(64_000_000)
                 } else {
                     dayStart - 7_200_000L - random.nextInt(3_600_000)
                 }
-                val last = first + 60_000L + random.nextInt(600_000)
-                buckets.add(UsageBucket(pkg, first, last, random.nextInt(3_600_000).toLong()))
+                val pauseAt = resumeAt + 60_000L + random.nextInt(600_000)
+                events.add(ForegroundEvent(pkg, "Main", resumeAt, ForegroundEventKind.RESUMED))
+                events.add(ForegroundEvent(pkg, "Main", pauseAt, ForegroundEventKind.PAUSED))
             }
         }
-        // 无关包名的干扰桶
-        repeat(appCount) {
-            buckets.add(
-                UsageBucket(
-                    packageName = "com.other.app${random.nextInt(1000)}",
-                    firstTimeStamp = dayStart + random.nextInt(64_000_000),
-                    lastTimeStamp = dayStart + random.nextInt(64_000_000),
-                    totalTimeInForegroundMs = random.nextInt(600_000).toLong()
-                )
-            )
+        // 无关包名的干扰事件
+        repeat(appCount * 2) {
+            val t = dayStart + random.nextInt(64_000_000)
+            val kind = if (random.nextInt(2) == 0) {
+                ForegroundEventKind.RESUMED
+            } else {
+                ForegroundEventKind.PAUSED
+            }
+            events.add(ForegroundEvent("com.other.app${random.nextInt(1000)}", "Main", t, kind))
         }
-        buckets.shuffle(random)
-        return UsageSample(apps, buckets, dayStart, dayEnd)
+        events.shuffle(random)
+        return UsageSample(apps, events, dayStart, dayEnd)
     }
 
     companion object {

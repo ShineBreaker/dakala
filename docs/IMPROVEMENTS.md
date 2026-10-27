@@ -5,6 +5,22 @@
 
 首轮审计：2026-10-19 —— 分区审计 5 个区域、产出 15 张卡，独立复核 15 张全部通过；8 张当日实施。剩余 6 张于同日第二轮全部实施完毕（见下），清单暂无待办。
 
+## 界面层-3 | 重要度 - | 状态：已实施（5a21f85）
+
+> 来源：用户需求（非审计产出）——时长输入控件难用、打卡日界需支持自定义重置点。
+
+- **位置**：`app/src/main/java/com/dakala/app/ui/components/Dialogs.kt`（DurationThresholdDialog 双文本框）；`app/src/main/java/com/dakala/app/domain/usecase/UsageStatsUseCase.kt`（自然日桶）；`domain/model/DayStamp.kt`（yyyyMMdd 日界）；`data/local/entity/AppItem.kt`（无重置点字段）
+- **问题**：时长设置靠两个数字文本框输入分/秒，难用且易出界；「今日」被钉死在自然日零点，`queryUsageStats` 的日桶无法表达「每晚 12 点以外时刻翻篇」的打卡周期（用户常用 23:00、04:00）。
+- **目标形态与验收**：滚轮控件（LazyColumn + 吸附）替代文本输入；`DayResetTime` 值对象承载「HH:mm 解析 + 周期起点 + 周期日期键」三规则；使用统计改走 `queryEvents` 事件流按各应用重置点聚合；全局默认重置时间入 `app_settings`、应用维度可空覆盖（null=跟随全局）。验收：`DayResetTimeTest`（跨重置点日期键/周期起点/容错解析）+ `UsageStatsUseCaseTest`（事件聚合：窗口起点前已前台、乱序、孤立 PAUSE、仍在用计到窗口末）；手工：设置页改默认重置时间、应用卡片齿轮进二级对话框选 23:00/04:00 预设或「跟随全局」。
+- **代码依据**：旧 `DurationThresholdDialog` 用两个 `OutlinedTextField`；`DayStamp.today()` 在 Repository/Widget×2/ViewModel 四处定死日界；`latestDurationSeconds` 按自然日过滤桶。
+- **收益**：locality（重置语义收敛到 `DayResetTime` 一处，自定义打卡/小部件/使用记录同口径）；可测性（`foregroundSeconds` 纯函数首次覆盖跨边界会话）；用户可见（滚轮 + 23:00/04:00 重置）。
+- **工作量**：大（约 20 个文件）。
+- **改动风险**：中（使用统计从日桶换事件流，跨零点行为经单测锚定；DB v3→v4 沿用 destructive fallback；通知语义不变——通知时间与重置时间是两个独立设置）。
+- **重要度**：用户提出（交互痛点 + 数据模型缺角）。
+
+**复核记录**：用户直接需求，按原话验收：滚轮控件、默认 00:00、可单应用覆盖、23:00/04:00 常用项 —— 全部落实。
+**验收记录**：2026-10-28 —— 目标形态达成：`DayResetTime`（ofMinutes/of/parse 容错回退 00:00 + currentPeriodStart/dateKey）；`AppItem.resetTimeMinutes` 可空覆盖 + `KEY_DEFAULT_RESET_TIME` 全局键；`UsageStatsUseCase` 改 `queryEvents` + `foregroundSeconds`（事件回溯覆盖「重置点前打开未退出」）；`WheelPicker`（时分/时分秒两种）+ `ResetTimeDialog` + `AppCheckSettingsDialog`；`DayStamp` 删除。验证：新增/改写 `DayResetTimeTest` 8 条、`UsageStatsUseCaseTest` 11 条、`AppMonitorStatusTest` 小时格式化 3 条断言；`./gradlew ktlintCheck test assembleDebug --no-configuration-cache` 全绿。
+
 ## 后台层-1 | 重要度 1 | 状态：已实施（1f7e734）
 
 - **位置**：`app/src/main/java/com/dakala/app/DakalaApplication.kt:45`、`app/src/main/java/com/dakala/app/receiver/BootReceiver.kt:28`、`app/src/main/java/com/dakala/app/worker/NotificationWorker.kt:69,251-262`；写入侧 `app/src/main/java/com/dakala/app/ui/viewmodel/MainViewModel.kt`

@@ -26,7 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.dakala.app.R
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.org.OrgNote
-import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.DayResetTime
 import com.dakala.app.ui.components.*
 import com.dakala.app.ui.theme.DakalaTheme
 import com.dakala.app.ui.util.PermissionHelper
@@ -97,6 +97,7 @@ fun MainScreen(
     val customCheckStatusGroup by viewModel.customCheckStatusGroup.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val todoUiState by todoViewModel.uiState.collectAsState()
+    val defaultResetTime by viewModel.defaultResetTime.collectAsState()
 
     // 当前选中的Tab
     var selectedTab by remember { mutableStateOf(CheckTab.APP_CHECK) }
@@ -104,9 +105,10 @@ fun MainScreen(
     // 权限检查状态
     var hasPermission by remember { mutableStateOf(false) }
 
-    // 时长设置对话框状态
+    // 应用打卡设置对话框状态（包名 + 正在编辑的子项）
+    var settingsAppPackage by remember { mutableStateOf<String?>(null) }
     var showDurationDialog by remember { mutableStateOf(false) }
-    var selectedAppForDuration by remember { mutableStateOf<AppMonitorStatus?>(null) }
+    var showResetDialog by remember { mutableStateOf(false) }
 
     // 自定义打卡对话框状态
     var showAddCustomCheckDialog by remember { mutableStateOf(false) }
@@ -292,8 +294,7 @@ fun MainScreen(
                                             openApp(context, packageName)
                                         },
                                         onSettingsClick = { packageName ->
-                                            selectedAppForDuration = monitorStatusGroup.incomplete.find { it.appItem.packageName == packageName }
-                                            showDurationDialog = true
+                                            settingsAppPackage = packageName
                                         }
                                     )
                                 }
@@ -315,8 +316,7 @@ fun MainScreen(
                                             openApp(context, packageName)
                                         },
                                         onSettingsClick = { packageName ->
-                                            selectedAppForDuration = monitorStatusGroup.completed.find { it.appItem.packageName == packageName }
-                                            showDurationDialog = true
+                                            settingsAppPackage = packageName
                                         }
                                     )
                                 }
@@ -386,22 +386,57 @@ fun MainScreen(
         }
     }
 
-    // 时长设置对话框
-    if (showDurationDialog && selectedAppForDuration != null) {
+    // 应用打卡设置：按包名实时解析状态，阈值/重置改动后立即反映新值
+    val settingsStatus = settingsAppPackage?.let { packageName ->
+        (monitorStatusGroup.incomplete + monitorStatusGroup.completed)
+            .find { it.appItem.packageName == packageName }
+    }
+
+    if (settingsStatus != null && !showDurationDialog && !showResetDialog) {
+        val appItem = settingsStatus.appItem
+        AppCheckSettingsDialog(
+            appName = appItem.appName,
+            durationLabel = settingsStatus.thresholdFormatted,
+            resetLabel = appItem.resetTimeMinutes?.let { DayResetTime.ofMinutes(it).format() }
+                ?: stringResource(R.string.reset_time_follow_global, defaultResetTime.format()),
+            onEditDuration = { showDurationDialog = true },
+            onEditReset = { showResetDialog = true },
+            onDismiss = { settingsAppPackage = null }
+        )
+    }
+
+    // 目标时长滚轮对话框
+    if (showDurationDialog && settingsStatus != null) {
         DurationThresholdDialog(
-            currentThreshold = selectedAppForDuration!!.appItem.durationThreshold,
+            currentThreshold = settingsStatus.appItem.durationThreshold,
             onThresholdSelected = { seconds ->
                 viewModel.updateDurationThreshold(
-                    selectedAppForDuration!!.appItem.packageName,
+                    settingsStatus.appItem.packageName,
                     seconds
                 )
                 showDurationDialog = false
-                selectedAppForDuration = null
             },
-            onDismiss = {
-                showDurationDialog = false
-                selectedAppForDuration = null
-            }
+            onDismiss = { showDurationDialog = false }
+        )
+    }
+
+    // 重置时间滚轮对话框
+    if (showResetDialog && settingsStatus != null) {
+        ResetTimeDialog(
+            currentMinutes = settingsStatus.appItem.resetTimeMinutes,
+            followGlobalLabel = stringResource(
+                R.string.reset_time_follow_global,
+                defaultResetTime.format()
+            ),
+            showFollowOption = true,
+            onSelected = { minutes ->
+                viewModel.updateResetTime(
+                    settingsStatus.appItem.packageName,
+                    minutes?.let { DayResetTime.ofMinutes(it) }
+                )
+                showResetDialog = false
+            },
+            onDismiss = { showResetDialog = false }
         )
     }
 

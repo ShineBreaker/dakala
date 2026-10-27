@@ -5,6 +5,27 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 新增
+
+- **每日重置时间**：打卡周期的日界不再固定零点，可设置每天几点「翻篇」（默认 00:00）；全局默认值在设置页「默认重置时间」项修改，单个应用可覆盖为任意时刻（常用 23:00 / 04:00 快捷预设），也可恢复「跟随全局」；自定义打卡记录与小部件跟随全局重置点
+- **滚轮选择控件**：时长阈值（时:分:秒）与时间选择（时:分）改用吸附式滚轮，替代此前难用的文本输入；时长对话框带 5/10/30/60 分钟预设
+- **应用级设置入口**：应用卡片齿轮改为「目标时长 / 重置时间」两级设置对话框，重置行实时显示应用当前生效值
+
+### 改进
+
+- **使用时长统计**：日聚合桶（`queryUsageStats`）换成前台事件流聚合（`queryEvents`），支持任意重置边界；跨重置点未退出的会话经事件回溯计入，窗口起点前后台切换、Activity 乱序事件均可正确计入；时长显示支持小时级（如「1小时5分钟」）
+- **跨周期自动刷新**：主界面 onResume 按「每应用重置点 + 周期日期键」快照检测翻篇，不再只认自然日零点
+- Room 数据库 v3 → v4（`app_items` 新增 `resetTimeMinutes` 列，`app_settings` 新增 `default_reset_time` 键；沿用 destructive fallback）
+
+### 技术细节
+
+- 新增 `DayResetTime.kt` - 重置时间值对象（HH:mm 解析/格式化、周期起点、周期日期键）
+- 新增 `WheelPicker.kt` - 可复用滚轮组件（LazyColumn + 吸附惯性）
+- `UsageStatsUseCase.kt` - `AppUsageQuery`（包名+重置点）批量查询，`foregroundSeconds` 纯函数可单测
+- `DayStamp.kt` / `DayStampTest.kt` 删除，由 `DayResetTime` 取代（新增 `DayResetTimeTest` 8 条 + 事件聚合用例 11 条）
+
 ## [1.1.0] - 2026-10-22
 
 ### 新增

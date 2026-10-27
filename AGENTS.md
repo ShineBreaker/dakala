@@ -35,7 +35,7 @@ app/src/main/java/com/dakala/app/
 ├── data/
 │   ├── local/
 │   │   ├── dao/          # Room DAO 接口
-│   │   ├── database/     # AppUsageDatabase (Room v3, fallbackToDestructiveMigration)
+│   │   ├── database/     # AppUsageDatabase (Room v4, fallbackToDestructiveMigration)
 │   │   └── entity/       # Room 实体
 │   ├── org/              # org 文件解析与写回（OrgParser、OrgWriter、OrgSyntax）
 │   └── repository/       # Repository 实现
@@ -95,7 +95,7 @@ app/src/main/java/com/dakala/app/
 
 ## 测试
 
-当前仅 `app/src/test/` 下有 JVM 单元测试（JUnit 4）：`AppMonitorStatusTest`、`UsageStatsUseCaseTest`、`NotificationTimeTest`、`DayStampTest`、`WidgetOpacityTest`、`OrgParserTest`、`OrgWriterTest`。`app/src/androidTest/` 源集不存在（`app/build.gradle.kts` 保留了 Espresso / Compose UI Test 依赖，但无设备测试）。
+当前仅 `app/src/test/` 下有 JVM 单元测试（JUnit 4）：`AppMonitorStatusTest`、`UsageStatsUseCaseTest`、`NotificationTimeTest`、`DayResetTimeTest`、`WidgetOpacityTest`、`OrgParserTest`、`OrgWriterTest`。`app/src/androidTest/` 源集不存在（`app/build.gradle.kts` 保留了 Espresso / Compose UI Test 依赖，但无设备测试）。
 
 ## 文档
 

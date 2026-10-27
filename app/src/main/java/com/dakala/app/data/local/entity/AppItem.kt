@@ -14,6 +14,7 @@ import androidx.room.PrimaryKey
  * @property appName 应用显示名称，用于UI展示
  * @property isMonitored 是否正在监控此应用
  * @property durationThreshold 时长阈值（秒），低于此值视为未完成打卡
+ * @property resetTimeMinutes 每日重置点距零点的分钟数；null 表示跟随全局默认重置时间
  * @property createdAt 创建时间戳
  * @property updatedAt 最后更新时间戳
  */
@@ -25,6 +26,7 @@ data class AppItem(
     val appName: String,
     val isMonitored: Boolean = true,
     val durationThreshold: Int = 600, // 默认10分钟（600秒）
+    val resetTimeMinutes: Int? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
@@ -64,6 +66,7 @@ data class AppSetting(
     companion object {
         const val KEY_NOTIFICATION_TIME = "notification_time"
         const val KEY_DEFAULT_DURATION_THRESHOLD = "default_duration_threshold"
+        const val KEY_DEFAULT_RESET_TIME = "default_reset_time"
         const val KEY_ORG_FILE_URI = "org_file_uri"
         const val KEY_WIDGET_OPACITY = "widget_opacity"
         const val KEY_WIDGET_TODO_SHOW_ALL = "widget_todo_show_all"

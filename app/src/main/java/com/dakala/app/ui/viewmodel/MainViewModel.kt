@@ -4,12 +4,14 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.dakala.app.data.local.entity.AppItem
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.repository.AppUsageRepository
 import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.domain.model.CustomCheckStatus
-import com.dakala.app.domain.model.DayStamp
+import com.dakala.app.domain.model.DayResetTime
 import com.dakala.app.domain.model.StatusGroup
+import com.dakala.app.domain.usecase.AppUsageQuery
 import com.dakala.app.domain.usecase.UsageStatsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Clock
 import javax.inject.Inject
 
 /**
@@ -48,9 +51,15 @@ class MainViewModel @Inject constructor(
     // ==================== UI状态 ====================
 
     /**
-     * 当前追踪的日期（yyyyMMdd），用于检测跨天
+     * 上次刷新时各应用打卡周期戳的快照（重置点+日期键），用于检测跨周期
      */
-    private var lastRefreshDate: Int = DayStamp.today()
+    private var lastRefreshStamp: String = ""
+
+    /**
+     * 全局默认重置时间（响应式），驱动应用卡片的重置时间展示
+     */
+    private val _defaultResetTime = MutableStateFlow(DayResetTime.DEFAULT)
+    val defaultResetTime: StateFlow<DayResetTime> = _defaultResetTime.asStateFlow()
 
     /**
      * 今日使用时长映射（包名 -> 秒数），驱动监控状态分组
@@ -58,9 +67,11 @@ class MainViewModel @Inject constructor(
     private val _todayUsageMap = MutableStateFlow<Map<String, Int>>(emptyMap())
 
     /**
-     * 当前日期（响应式），用于驱动自定义打卡记录的日期查询
+     * 当前打卡日期键（响应式），用于驱动自定义打卡记录的日期查询
      */
-    private val _currentDate = MutableStateFlow(DayStamp.today())
+    private val _currentDate = MutableStateFlow(
+        DayResetTime.DEFAULT.dateKey(Clock.systemDefaultZone())
+    )
 
     /**
      * 监控状态分组（按完成状态分组）
@@ -99,16 +110,24 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * 检测日期变更并刷新数据。
+     * 检测打卡周期变更并刷新数据。
      * 应在 Activity.onResume 时调用。
+     *
+     * 翻篇时刻按每个应用的重置点计算（不再只看自然日零点）；
+     * 重置时间本身被修改也会使快照失配，从而触发刷新。
      */
     fun checkDateAndRefresh() {
-        val today = DayStamp.today()
-        if (today != lastRefreshDate) {
-            Log.d(TAG, "检测到日期变更: $lastRefreshDate -> $today")
-            lastRefreshDate = today
-            _currentDate.value = today
-            refreshUsageStats(forceReset = true)
+        viewModelScope.launch {
+            val clock = Clock.systemDefaultZone()
+            val defaultReset = repository.getDefaultResetTime()
+            val monitoredApps = repository.getMonitoredApps()
+            val stamp = periodStamp(monitoredApps, defaultReset, clock)
+
+            if (stamp != lastRefreshStamp) {
+                Log.d(TAG, "检测到打卡周期变更")
+                _currentDate.value = defaultReset.dateKey(clock)
+                refreshUsageStats(forceReset = true)
+            }
         }
     }
 
@@ -125,8 +144,14 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // 获取所有被监控的应用
+                // 获取所有被监控的应用与全局默认重置时间
                 val monitoredApps = repository.getMonitoredApps()
+                val defaultReset = repository.getDefaultResetTime()
+                _defaultResetTime.value = defaultReset
+
+                val clock = Clock.systemDefaultZone()
+                lastRefreshStamp = periodStamp(monitoredApps, defaultReset, clock)
+                _currentDate.value = defaultReset.dateKey(clock)
 
                 if (monitoredApps.isEmpty()) {
                     _todayUsageMap.value = emptyMap()
@@ -139,18 +164,26 @@ class MainViewModel @Inject constructor(
                     _todayUsageMap.value = emptyMap()
                 }
 
-                // 批量获取使用时长（binder 查询移出主线程）
-                val packageNames = monitoredApps.map { it.packageName }
+                // 批量获取各应用打卡周期内使用时长（binder 查询移出主线程）
                 val usageMap = withContext(Dispatchers.IO) {
-                    usageStatsUseCase.getAppsUsageDuration(packageNames)
+                    usageStatsUseCase.getAppsUsageDuration(
+                        monitoredApps.map {
+                            AppUsageQuery(
+                                it.packageName,
+                                it.resetTimeMinutes ?: defaultReset.minutesOfDay
+                            )
+                        }
+                    )
                 }
 
-                // 更新数据库记录
-                val today = DayStamp.today()
+                // 更新数据库记录（日期键取各应用自己的打卡周期）
                 val records = monitoredApps.map { app ->
+                    val reset = DayResetTime.ofMinutes(
+                        app.resetTimeMinutes ?: defaultReset.minutesOfDay
+                    )
                     com.dakala.app.data.local.entity.UsageRecord(
                         packageName = app.packageName,
-                        date = today,
+                        date = reset.dateKey(clock),
                         durationSeconds = usageMap[app.packageName] ?: 0
                     )
                 }
@@ -181,7 +214,44 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 更新应用的每日重置时间
+     *
+     * 写库后立即重算使用时长：周期边界变了，原周期内的累计时长不再适用。
+     *
+     * @param packageName 应用包名
+     * @param resetTime 重置时间；null 表示恢复为跟随全局默认
+     */
+    fun updateResetTime(packageName: String, resetTime: DayResetTime?) {
+        viewModelScope.launch {
+            repository.updateResetTime(packageName, resetTime)
+            Log.d(TAG, "更新重置时间: $packageName -> ${resetTime?.format() ?: "跟随全局"}")
+            refreshUsageStats()
+        }
+    }
+
     // ==================== 私有方法 ====================
+
+    /**
+     * 各应用打卡周期快照：重置点 + 当前周期日期键
+     *
+     * 周期翻篇（跨重置点）与重置时间被修改都会产生不同的快照。
+     */
+    private fun periodStamp(
+        apps: List<AppItem>,
+        defaultReset: DayResetTime,
+        clock: Clock
+    ): String = buildString {
+        append(defaultReset.minutesOfDay)
+        for (app in apps) {
+            val reset = DayResetTime.ofMinutes(
+                app.resetTimeMinutes ?: defaultReset.minutesOfDay
+            )
+            append('|').append(app.packageName)
+                .append(':').append(reset.minutesOfDay)
+                .append('@').append(reset.dateKey(clock))
+        }
+    }
 
     companion object {
         private const val TAG = "MainViewModel"

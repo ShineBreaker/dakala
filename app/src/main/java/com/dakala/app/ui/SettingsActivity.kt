@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Widgets
@@ -43,9 +44,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.dakala.app.R
 import com.dakala.app.domain.model.AppMonitorStatus
+import com.dakala.app.domain.model.DayResetTime
 import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.model.WidgetOpacity
 import com.dakala.app.ui.components.DurationThresholdDialog
+import com.dakala.app.ui.components.ResetTimeDialog
 import com.dakala.app.ui.components.SettingsItem
 import com.dakala.app.ui.components.SettingsSectionHeader
 import com.dakala.app.ui.components.SettingsSwitchItem
@@ -99,6 +102,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val notificationTime by viewModel.notificationTime.collectAsState()
     val defaultDurationThreshold by viewModel.defaultDurationThreshold.collectAsState()
+    val defaultResetTime by viewModel.defaultResetTime.collectAsState()
     val monitoredAppCount by viewModel.monitoredAppCount.collectAsState()
     val orgFilePath by viewModel.orgFilePath.collectAsState()
     val widgetOpacity by viewModel.widgetOpacity.collectAsState()
@@ -108,6 +112,7 @@ fun SettingsScreen(
 
     var showTimePicker by remember { mutableStateOf(false) }
     var showDurationDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
     var showOpacityDialog by remember { mutableStateOf(false) }
 
     // Org 文件选择器
@@ -174,6 +179,14 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_default_duration),
                     value = AppMonitorStatus.formatDuration(defaultDurationThreshold),
                     onClick = { showDurationDialog = true }
+                )
+            }
+            item {
+                SettingsItem(
+                    icon = Icons.Default.Schedule,
+                    title = stringResource(R.string.settings_default_reset_time),
+                    value = defaultResetTime.format(),
+                    onClick = { showResetDialog = true }
                 )
             }
 
@@ -264,6 +277,20 @@ fun SettingsScreen(
                 showDurationDialog = false
             },
             onDismiss = { showDurationDialog = false }
+        )
+    }
+
+    // 默认重置时间设置对话框（全局项不提供「跟随全局」）
+    if (showResetDialog) {
+        ResetTimeDialog(
+            currentMinutes = defaultResetTime.minutesOfDay,
+            followGlobalLabel = "",
+            showFollowOption = false,
+            onSelected = { minutes ->
+                minutes?.let { viewModel.setDefaultResetTime(DayResetTime.ofMinutes(it)) }
+                showResetDialog = false
+            },
+            onDismiss = { showResetDialog = false }
         )
     }
 

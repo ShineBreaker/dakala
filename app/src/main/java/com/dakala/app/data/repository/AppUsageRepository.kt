@@ -11,9 +11,10 @@ import com.dakala.app.data.local.entity.UsageRecord
 import com.dakala.app.data.local.entity.AppSetting
 import com.dakala.app.data.local.entity.CustomCheckItem
 import com.dakala.app.data.local.entity.CustomCheckRecord
-import com.dakala.app.domain.model.DayStamp
+import com.dakala.app.domain.model.DayResetTime
 import com.dakala.app.domain.model.NotificationTime
 import com.dakala.app.domain.model.WidgetOpacity
+import java.time.Clock
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -91,6 +92,17 @@ class AppUsageRepository(
         appItemDao.updateDurationThreshold(packageName, threshold)
     }
 
+    /**
+     * 更新应用的每日重置时间
+     *
+     * @param packageName 应用包名
+     * @param resetTime 重置时间；null 表示恢复为跟随全局默认
+     */
+    suspend fun updateResetTime(packageName: String, resetTime: DayResetTime?) {
+        Log.d(TAG, "更新重置时间: $packageName -> ${resetTime?.format() ?: "跟随全局"}")
+        appItemDao.updateResetTime(packageName, resetTime?.minutesOfDay)
+    }
+
     // ==================== 使用记录相关操作 ====================
 
     /**
@@ -143,6 +155,25 @@ class AppUsageRepository(
     suspend fun setDefaultDurationThreshold(threshold: Int) {
         Log.d(TAG, "设置默认时长阈值: $threshold 秒")
         appSettingDao.setSetting(AppSetting(AppSetting.KEY_DEFAULT_DURATION_THRESHOLD, threshold.toString()))
+    }
+
+    /**
+     * 获取全局默认重置时间
+     *
+     * 存储格式（"HH:mm" 字符串）与默认值 00:00 的回退都在 DayResetTime 内处理。
+     */
+    suspend fun getDefaultResetTime(): DayResetTime {
+        return DayResetTime.parse(appSettingDao.getSetting(AppSetting.KEY_DEFAULT_RESET_TIME))
+    }
+
+    /**
+     * 设置全局默认重置时间
+     *
+     * @param time 重置时间
+     */
+    suspend fun setDefaultResetTime(time: DayResetTime) {
+        Log.d(TAG, "设置默认重置时间: ${time.format()}")
+        appSettingDao.setSetting(AppSetting(AppSetting.KEY_DEFAULT_RESET_TIME, time.format()))
     }
 
     /**
@@ -223,7 +254,7 @@ class AppUsageRepository(
      * 切换自定义打卡状态
      */
     suspend fun toggleCustomCheckStatus(itemId: Int, isCompleted: Boolean) {
-        val today = DayStamp.today()
+        val today = getDefaultResetTime().dateKey(Clock.systemDefaultZone())
         val record = CustomCheckRecord(
             itemId = itemId,
             date = today,

@@ -1,55 +1,102 @@
 package com.dakala.app.domain.usecase
 
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.util.Log
-import java.util.Calendar
+import com.dakala.app.domain.model.DayResetTime
+import java.time.Clock
 
 /**
- * 单个应用的使用统计桶
- *
- * 与 Android 的 UsageStats 解耦，只保留判定「今日有效桶」所需的字段，
- * 使过滤逻辑可以在 JVM 单测中直接覆盖（含跨天边界）。
+ * 单个应用的使用统计查询项
  *
  * @property packageName 应用包名
- * @property firstTimeStamp 桶开始时间戳（毫秒）
- * @property lastTimeStamp 桶结束时间戳（毫秒）
- * @property totalTimeInForegroundMs 桶内前台使用时长（毫秒）
+ * @property resetMinutesOfDay 该应用打卡日的重置点（距零点分钟数，见 [DayResetTime]）
  */
-internal data class UsageBucket(
+data class AppUsageQuery(
     val packageName: String,
-    val firstTimeStamp: Long,
-    val lastTimeStamp: Long,
-    val totalTimeInForegroundMs: Long
+    val resetMinutesOfDay: Int
 )
 
 /**
- * 在 [startTime, endTime] 范围内按包名选出最新的使用统计桶，并转换为秒
- *
- * 只保留完全落在查询范围内的桶，排除跨天的周/月/年大桶，
- * 否则会把昨天的使用时长算进今天。
- *
- * @return 使用时长（秒），没有符合条件的桶时返回0
+ * 前台事件类别（与 Android 的 UsageEvents 解耦，供 JVM 单测覆盖）
  */
-internal fun List<UsageBucket>.latestDurationSeconds(
+internal enum class ForegroundEventKind { RESUMED, PAUSED }
+
+/**
+ * 单条前台事件
+ *
+ * @property packageName 应用包名
+ * @property className 事件关联的 Activity 类名（可能为 null）
+ * @property timeStamp 事件时间戳（毫秒）
+ * @property kind 事件类别
+ */
+internal data class ForegroundEvent(
+    val packageName: String,
+    val className: String?,
+    val timeStamp: Long,
+    val kind: ForegroundEventKind
+)
+
+/**
+ * 由前台事件流计算 [packageName] 在 [startTime, endTime] 内的前台总时长
+ *
+ * 事件先按时间戳排序，再用「按类名计数」判定应用是否处于前台：
+ * 任意 Activity 处于 RESUMED 即前台，全部 PAUSED 即后台——
+ * 因此可容忍 Activity 切换时 RESUME 先于 PAUSE 到达的乱序。
+ *
+ * 事件流应覆盖窗口起点之前的一段回溯：窗口起点前的事件只参与
+ * 前台状态回放、不直接计时，用于识别「起点时已在前台」的会话
+ * （如重置点之前打开、至今未退出的应用）。
+ *
+ * @return 前台使用时长（秒）
+ */
+internal fun List<ForegroundEvent>.foregroundSeconds(
     packageName: String,
     startTime: Long,
     endTime: Long
 ): Int {
-    // 单遍循环：同时判定包名与区间并追踪 lastTimeStamp 最大的桶，避免中间列表
-    var latest: UsageBucket? = null
-    for (bucket in this) {
-        if (bucket.packageName == packageName &&
-            bucket.firstTimeStamp >= startTime &&
-            bucket.lastTimeStamp <= endTime &&
-            (latest == null || bucket.lastTimeStamp > latest.lastTimeStamp)
-        ) {
-            latest = bucket
+    var totalMillis = 0L
+    var foregroundSince = -1L
+    var resumedCount = 0
+    val resumedClasses = HashMap<String, Int>()
+
+    for (event in this.sortedBy { it.timeStamp }) {
+        if (event.packageName != packageName) continue
+        if (event.timeStamp > endTime) break
+
+        val key = event.className ?: event.packageName
+        when (event.kind) {
+            ForegroundEventKind.RESUMED -> {
+                resumedClasses[key] = (resumedClasses[key] ?: 0) + 1
+                resumedCount++
+                if (resumedCount == 1) foregroundSince = event.timeStamp
+            }
+            ForegroundEventKind.PAUSED -> {
+                val count = resumedClasses[key] ?: 0
+                if (count > 0) {
+                    resumedClasses[key] = count - 1
+                    resumedCount--
+                    if (resumedCount == 0 && foregroundSince >= 0) {
+                        val from = maxOf(foregroundSince, startTime)
+                        if (event.timeStamp > from) {
+                            totalMillis += event.timeStamp - from
+                        }
+                        foregroundSince = -1
+                    }
+                }
+            }
         }
     }
 
-    val millis = latest?.totalTimeInForegroundMs ?: return 0
-    return (millis / 1000).toInt()
+    if (foregroundSince >= 0) {
+        val from = maxOf(foregroundSince, startTime)
+        if (endTime > from) {
+            totalMillis += endTime - from
+        }
+    }
+
+    return (totalMillis / 1000).toInt().coerceAtLeast(0)
 }
 
 /**
@@ -57,6 +104,10 @@ internal fun List<UsageBucket>.latestDurationSeconds(
  *
  * 封装UsageStatsManager的调用逻辑，提供获取应用使用时长的方法。
  * 这是唯一调用UsageStatsManager的地方，确保权限检查的一致性。
+ *
+ * 打卡日界由每个应用自己的重置时间决定（默认 00:00，可为单个应用
+ * 设置如 23:00、04:00）。查询走 queryEvents 事件流而非日聚合桶：
+ * 日桶按自然日对齐，无法表达「23 点翻篇」这类自定义边界。
  *
  * 重要说明：
  * - 使用UsageStatsManager需要PACKAGE_USAGE_STATS权限
@@ -69,96 +120,76 @@ class UsageStatsUseCase(private val context: Context) {
 
     companion object {
         private const val TAG = "UsageStatsUseCase"
+
+        /**
+         * 事件查询向前回溯量：窗口起点前已在前台的会话靠它回放出来
+         */
+        private const val EVENT_LOOKBACK_MS = 24 * 60 * 60 * 1000L
     }
 
     /**
-     * 获取今日的开始时间和结束时间戳（本地时区）
-     */
-    private fun getTodayTimeRange(): Pair<Long, Long> {
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
-        return startTime to endTime
-    }
-
-    /**
-     * 查询指定时间范围内的使用统计桶
+     * 查询指定时间范围内的前台事件流
      *
-     * 使用 INTERVAL_BEST 获取最细粒度的数据，避免 INTERVAL_DAILY 的时区桶边界问题。
      * 取不到 UsageStatsManager 服务（未授予 PACKAGE_USAGE_STATS）时返回null。
      */
-    private fun queryBuckets(startTime: Long, endTime: Long): List<UsageBucket>? {
+    private fun queryForegroundEvents(startTime: Long, endTime: Long): List<ForegroundEvent>? {
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
             ?: run {
                 Log.w(TAG, "无法获取UsageStatsManager服务")
                 return null
             }
 
-        val usageStatsList = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_BEST,
-            startTime,
-            endTime
-        )
-        Log.d(TAG, "queryUsageStats 返回 ${usageStatsList.size} 条记录")
-
-        return usageStatsList.map {
-            UsageBucket(
-                packageName = it.packageName,
-                firstTimeStamp = it.firstTimeStamp,
-                lastTimeStamp = it.lastTimeStamp,
-                totalTimeInForegroundMs = it.totalTimeInForeground
+        val usageEvents = usageStatsManager.queryEvents(startTime, endTime)
+        val events = ArrayList<ForegroundEvent>()
+        val event = UsageEvents.Event()
+        while (usageEvents.hasNextEvent()) {
+            usageEvents.getNextEvent(event)
+            val kind = when (event.eventType) {
+                UsageEvents.Event.ACTIVITY_RESUMED -> ForegroundEventKind.RESUMED
+                UsageEvents.Event.ACTIVITY_PAUSED -> ForegroundEventKind.PAUSED
+                else -> continue
+            }
+            events += ForegroundEvent(
+                packageName = event.packageName,
+                className = event.className,
+                timeStamp = event.timeStamp,
+                kind = kind
             )
         }
+        Log.d(TAG, "queryEvents 返回 ${events.size} 条前台事件")
+        return events
     }
 
     /**
-     * 获取指定应用今日的使用时长
+     * 获取多个应用在当前打卡周期内的使用时长
      *
-     * 通过UsageStatsManager查询应用在今日的前台使用时长。
-     * 如果没有权限或查询失败，返回0。
+     * 每个应用按自己的重置时间取「最近一次重置点到现在」的时长；
+     * 事件流只向系统查询一次（覆盖最早周期起点到现在），各应用自行裁剪。
      *
-     * @param packageName 应用包名
-     * @return 使用时长（秒）
-     */
-    fun getAppUsageDuration(packageName: String): Int {
-        val (startTime, endTime) = getTodayTimeRange()
-        Log.d(TAG, "查询 $packageName 的使用统计: 范围=${startTime}~${endTime}")
-
-        val durationSeconds = (queryBuckets(startTime, endTime) ?: return 0)
-            .latestDurationSeconds(packageName, startTime, endTime)
-
-        Log.d(TAG, "应用 $packageName 今日使用时长: ${durationSeconds}秒")
-
-        return durationSeconds
-    }
-
-    /**
-     * 获取多个应用今日的使用时长
-     *
-     * 批量查询多个应用的使用时长，减少重复查询开销。
-     *
-     * @param packageNames 应用包名列表
+     * @param queries 查询项列表（包名 + 各自重置点）
      * @return 包名到使用时长（秒）的映射
      */
-    fun getAppsUsageDuration(packageNames: List<String>): Map<String, Int> {
-        if (packageNames.isEmpty()) return emptyMap()
+    fun getAppsUsageDuration(queries: List<AppUsageQuery>): Map<String, Int> {
+        if (queries.isEmpty()) return emptyMap()
 
-        val (startTime, endTime) = getTodayTimeRange()
-        Log.d(TAG, "批量查询 ${packageNames.size} 个应用: 范围=${startTime}~${endTime}")
+        val clock = Clock.systemDefaultZone()
+        val now = clock.millis()
+        val periodStarts = queries.associate { query ->
+            query.packageName to DayResetTime.ofMinutes(query.resetMinutesOfDay).periodStartMillis(clock)
+        }
+        val rangeStart = periodStarts.values.min() - EVENT_LOOKBACK_MS
+        Log.d(TAG, "批量查询 ${queries.size} 个应用: 范围=${rangeStart}~${now}")
 
-        val buckets = queryBuckets(startTime, endTime) ?: return emptyMap()
-        val bucketsByPackage = buckets.groupBy(UsageBucket::packageName)
+        val events = queryForegroundEvents(rangeStart, now) ?: return emptyMap()
 
-        return packageNames.associateWith { packageName ->
-            val durationSeconds = bucketsByPackage[packageName].orEmpty()
-                .latestDurationSeconds(packageName, startTime, endTime)
-            Log.d(TAG, "应用 $packageName 今日使用时长: ${durationSeconds}秒")
-            durationSeconds
+        return queries.associate { query ->
+            val durationSeconds = events.foregroundSeconds(
+                packageName = query.packageName,
+                startTime = periodStarts.getValue(query.packageName),
+                endTime = now
+            )
+            Log.d(TAG, "应用 ${query.packageName} 本周期使用时长: ${durationSeconds}秒")
+            query.packageName to durationSeconds
         }
     }
 }
