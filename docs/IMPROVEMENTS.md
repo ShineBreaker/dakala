@@ -5,6 +5,22 @@
 
 首轮审计：2026-10-19 —— 分区审计 5 个区域、产出 15 张卡，独立复核 15 张全部通过；8 张当日实施。剩余 6 张于同日第二轮全部实施完毕（见下），清单暂无待办。
 
+## 界面层-4 | 重要度 - | 状态：已实施
+
+> 来源：用户需求（非审计产出）——核对全部界面是否符合最新 Material 3 Expressive 规范。
+
+- **位置**：全部 `ui/` 界面与组件；`gradle/libs.versions.toml`（material3 1.3.1）；`app/build.gradle.kts`（compileSdk 36.1）
+- **问题**：material3 1.3.1 时代实现与 Expressive 规范有差距——旧线性/圆形进度指示、自拼 `Surface` 底栏、`TopAppBar` 内嵌文本框冒充搜索、`IconButton` 模拟勾选（无切换语义）、`Surface` 自拼计数胶囊、对话框内次要动作用主按钮。
+- **目标形态与验收**：material3 升到含 expressive 组件的版本并逐项替换；功能语义不变（回调/状态等价迁移）；编译零 deprecation 告警；门禁全绿。
+- **代码依据**：1.4.0 stable AAR 实证——`ExperimentalMaterial3ExpressiveApi` 被标 internal，wavy 进度/`LoadingIndicator`/`FloatingToolbar` 等类未编进稳定版；1.5.0-beta02 含全部组件（`WavyProgressIndicatorKt`/`LoadingIndicatorKt`/`FloatingToolbarKt`/`ButtonGroupKt` 等）。
+- **收益**：跟随最新 M3E 规范与官方组件演进；勾选获得正式 toggle 语义（无障碍）；图标解码移出组合线程顺带消除滚动期主线程 IO。
+- **工作量**：中（9 个文件 + SDK platform 37.2）。
+- **改动风险**：中（依赖大版本升级带动 Compose 1.12；beta 版 API 仍可能微调——1.5.0-beta 内 `TopSearchBar` 已改名 `AppBarWithSearch`；compileSdk 升 37.2 但 targetSdk 保持 36）。
+- **重要度**：用户提出。
+
+**复核记录**：审计逐一比对现有控件与规范——选定迁移点：wavy 进度、LoadingIndicator、FloatingToolbar+FAB、AppBarWithSearch、PrimaryTabRow、IconToggleButton、Checkbox、Badge、OutlinedButton；FilterChip/SuggestionChip/AlertDialog/ListItem 等本就在规范内，随库升级自动换新视觉。
+**验收记录**：2026-10-28 —— material3 1.5.0-beta02 + composeBom 2025.12.01 + compileSdk 37.2（platform-37.2 经腾讯镜像手动安装 + 补 package.xml）；九文件迁移完成；`ListItem`/`Slider`/SearchBar 同步迁移 1.5 新签名；`./gradlew ktlintCheck test assembleDebug --no-configuration-cache` 全绿、编译零 deprecation 告警。行为等价性：回调与状态逐项等价迁移，搜索经 `snapshotFlow` 同步 ViewModel，退出搜索 `clearText()` 还原过滤。
+
 ## 界面层-3 | 重要度 - | 状态：已实施（b8695b0）
 
 > 来源：用户需求（非审计产出）——时长输入控件难用、打卡日界需支持自定义重置点。
@@ -115,3 +131,4 @@
 ## 后续可提的新候选（本轮发现，未立卡）
 
 - `NotificationWorker.cancelNotification`（`NotificationWorker.kt`）：全仓零调用，属同一类投机性接口面，下轮审计确认后可删。
+- `ktlintCheck` 只覆盖 `.kts` 脚本、不覆盖 `.kt` 源码：AGP 9 built-in Kotlin 取代了 `kotlin-android` 插件，而 ktlint-gradle 12.1.2（已是最新版）依赖后者挂接 sourceSet，任务图上只有 `runKtlintCheckOverKotlinScripts`。可选修法：等插件支持，或基于 `KtLintCheckTask`/`GenerateReportsTask` 手工注册 `src/**/*.kt` 任务并挂进 `check`。

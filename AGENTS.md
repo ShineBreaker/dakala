@@ -22,7 +22,7 @@
 ### 构建注意事项
 
 - **统一加 `--no-configuration-cache`**：`gradle.properties` 设置了 `org.gradle.configuration-cache=true`，但构建历史上因 AGP/WorkManager 插件兼容性问题要求禁用；实测缓存命中时不带该参数也能通过，但 clean build 未验证，故所有构建与检查命令统一带上。
-- **JDK 25**（OpenJDK 25），AGP 9.1.1，compileSdk 36.1，minSdk 29，targetSdk 36。
+- **JDK 25**（OpenJDK 25），AGP 9.1.1，compileSdk 37.2（material3 1.5 要求 ≥37），minSdk 29，targetSdk 36。
 - **自定义 aapt2**：`tools/aapt2/aapt2` 是为 Guix/Nix 等 non-FHS Linux 打包的 wrapper，`gradlew` 通过 `GRADLE_OPTS` 传入系统属性 `-Dorg.gradle.project.android.aapt2FromMavenOverride` 指向它。在标准 Linux 发行版上构建不影响。
 - Release 签名文件（`keystore.properties`、`dakala.keystore`）已 gitignored，本地构建 debug 不需要。
 

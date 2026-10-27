@@ -17,10 +17,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.dakala.app"
+    // compose 1.12 / material3 1.5 要求 compileSdk >= 37；
+    // targetSdk 保持 36：只升编译面，不引入新运行时行为约束
     compileSdk {
         version =
-            release(36) {
-                minorApiLevel = 1
+            release(37) {
+                minorApiLevel = 2
             }
     }
 

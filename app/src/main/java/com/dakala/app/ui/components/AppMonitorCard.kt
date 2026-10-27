@@ -1,7 +1,5 @@
 package com.dakala.app.ui.components
 
-import android.content.Intent
-import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.ColorMatrix
@@ -10,7 +8,6 @@ import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,7 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.dakala.app.R
 import com.dakala.app.domain.model.AppMonitorStatus
 import com.dakala.app.ui.theme.DakalaColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * 应用监控项卡片组件
@@ -46,6 +46,7 @@ import com.dakala.app.ui.theme.DakalaColors
  * @param onSettingsClick 点击设置按钮时的回调
  * @param modifier 修饰符
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppMonitorCard(
     status: AppMonitorStatus,
@@ -56,21 +57,22 @@ fun AppMonitorCard(
     val context = LocalContext.current
     val isCompleted = status.isCompleted
 
-    // 获取应用图标
-    val appIcon = remember(status.appItem.packageName) {
-        try {
-            context.packageManager.getApplicationIcon(status.appItem.packageName)
-        } catch (e: Exception) {
-            context.getDrawable(android.R.drawable.sym_def_app_icon)
-        }
-    }
-
-    // 如果已完成，将图标转换为灰度
-    val displayIcon = remember(isCompleted, appIcon) {
-        if (isCompleted && appIcon != null) {
-            convertToGrayscale(appIcon)
-        } else {
-            appIcon
+    // 应用图标（含完成态灰度化）：PackageManager 读取与位图处理放到 IO 线程，
+    // 列表滚动期间不在组合线程做磁盘 IO 与像素遍历
+    val displayIcon by produceState<Bitmap?>(
+        initialValue = null,
+        status.appItem.packageName,
+        isCompleted
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val drawable = try {
+                context.packageManager.getApplicationIcon(status.appItem.packageName)
+            } catch (e: Exception) {
+                context.getDrawable(android.R.drawable.sym_def_app_icon)
+            }
+            drawable?.let { drawableToBitmap(it) }?.let { bitmap ->
+                if (isCompleted) toGrayscale(bitmap) else bitmap
+            }
         }
     }
 
@@ -95,15 +97,17 @@ fun AppMonitorCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 应用图标
-            displayIcon?.let { drawable ->
-                Image(
-                    bitmap = drawableToBitmap(drawable).asImageBitmap(),
-                    contentDescription = status.appItem.appName,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                )
+            // 应用图标：固定占位，解码完成前不挤压布局
+            Box(modifier = Modifier.size(48.dp)) {
+                displayIcon?.let { bitmap ->
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = status.appItem.appName,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -162,13 +166,10 @@ fun AppMonitorCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 进度条
-                LinearProgressIndicator(
+                // 进度条（M3 Expressive 波浪指示器）
+                LinearWavyProgressIndicator(
                     progress = { status.progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
+                    modifier = Modifier.fillMaxWidth(),
                     color = if (isCompleted) {
                         DakalaColors.Success
                     } else {
@@ -203,16 +204,15 @@ fun AppMonitorCard(
 }
 
 /**
- * 将Drawable转换为灰度图
+ * 将Bitmap转换为灰度图
  *
- * @param drawable 原始Drawable
- * @return 灰度化的Drawable
+ * @param source 原始Bitmap
+ * @return 灰度化的Bitmap
  */
-private fun convertToGrayscale(drawable: Drawable): Drawable {
-    val bitmap = drawableToBitmap(drawable)
+private fun toGrayscale(source: Bitmap): Bitmap {
     val grayBitmap = Bitmap.createBitmap(
-        bitmap.width,
-        bitmap.height,
+        source.width,
+        source.height,
         Bitmap.Config.ARGB_8888
     )
 
@@ -222,9 +222,9 @@ private fun convertToGrayscale(drawable: Drawable): Drawable {
         setSaturation(0f)
     }
     paint.colorFilter = ColorMatrixColorFilter(colorMatrix)
-    canvas.drawBitmap(bitmap, 0f, 0f, paint)
+    canvas.drawBitmap(source, 0f, 0f, paint)
 
-    return BitmapDrawable(Resources.getSystem(), grayBitmap)
+    return grayBitmap
 }
 
 /**
@@ -312,15 +312,13 @@ fun SectionHeader(
             color = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+        Badge(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) {
             Text(
                 text = count.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                style = MaterialTheme.typography.labelMedium
             )
         }
     }

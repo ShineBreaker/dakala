@@ -161,7 +161,10 @@ fun TodoCard(
             }
 
             // 打钩按钮
-            IconButton(onClick = onToggle) {
+            IconToggleButton(
+                checked = note.isDone,
+                onCheckedChange = { onToggle() }
+            ) {
                 Icon(
                     imageVector = if (note.isDone) {
                         Icons.Outlined.CheckCircle

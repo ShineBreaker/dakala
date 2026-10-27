@@ -16,11 +16,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -63,7 +60,6 @@ fun SettingsItem(
     onClick: () -> Unit
 ) {
     ListItem(
-        headlineContent = { Text(title) },
         supportingContent = {
             Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant)
         },
@@ -83,7 +79,9 @@ fun SettingsItem(
         },
         modifier = Modifier.clickable(onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+    ) {
+        Text(title)
+    }
 }
 
 /**
@@ -107,7 +105,6 @@ fun SettingsSwitchItem(
     onCheckedChange: (Boolean) -> Unit
 ) {
     ListItem(
-        headlineContent = { Text(title) },
         supportingContent = {
             Text(valueText, color = MaterialTheme.colorScheme.onSurfaceVariant)
         },
@@ -123,7 +120,9 @@ fun SettingsSwitchItem(
         },
         modifier = Modifier.clickable { onCheckedChange(!checked) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+    ) {
+        Text(title)
+    }
 }
 
 /**
@@ -141,7 +140,10 @@ fun WidgetOpacityDialog(
     onConfirm: (percent: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var percent by remember { mutableFloatStateOf(currentPercent.toFloat()) }
+    val sliderState = rememberSliderState(
+        value = currentPercent.toFloat(),
+        trackRange = 10f..100f
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -149,15 +151,14 @@ fun WidgetOpacityDialog(
         text = {
             Column {
                 Text(
-                    text = stringResource(R.string.settings_widget_opacity_value, percent.roundToInt()),
+                    text = stringResource(
+                        R.string.settings_widget_opacity_value,
+                        sliderState.value.roundToInt()
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Slider(
-                    value = percent,
-                    onValueChange = { percent = it.roundToInt().toFloat() },
-                    valueRange = 10f..100f
-                )
+                Slider(state = sliderState, onValueChange = {})
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         "10%",
@@ -177,7 +178,7 @@ fun WidgetOpacityDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    onConfirm(percent.roundToInt())
+                    onConfirm(sliderState.value.roundToInt())
                     onDismiss()
                 }
             ) {

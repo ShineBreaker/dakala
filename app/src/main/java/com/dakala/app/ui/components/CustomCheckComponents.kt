@@ -216,7 +216,10 @@ fun CustomCheckCard(
             )
 
             // 打钩按钮 - 未完成显示空心圆，已完成显示实心勾
-            IconButton(onClick = onCheckToggle) {
+            IconToggleButton(
+                checked = isCompleted,
+                onCheckedChange = { onCheckToggle() }
+            ) {
                 Icon(
                     imageVector = if (isCompleted) {
                         Icons.Outlined.CheckCircle
@@ -456,7 +459,7 @@ fun AddCustomCheckDialog(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Button(
+                        OutlinedButton(
                             onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
                             modifier = Modifier.fillMaxWidth()
                         ) {

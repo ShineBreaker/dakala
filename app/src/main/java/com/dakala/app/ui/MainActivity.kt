@@ -85,7 +85,7 @@ enum class CheckTab(val title: String) {
  * @param onNavigateToAppSelection 导航到应用选择界面的回调
  * @param viewModel MainViewModel
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainScreen(
     onNavigateToAppSelection: () -> Unit,
@@ -205,8 +205,8 @@ fun MainScreen(
                         containerColor = MaterialTheme.colorScheme.background
                     )
                 )
-                // Tab Row
-                TabRow(
+                // Tab Row（M3 Expressive 主 Tab 行）
+                PrimaryTabRow(
                     selectedTabIndex = selectedTab.ordinal,
                     containerColor = MaterialTheme.colorScheme.background,
                     contentColor = MaterialTheme.colorScheme.primary
@@ -265,7 +265,7 @@ fun MainScreen(
             when (selectedTab) {
                 CheckTab.APP_CHECK -> {
                     if (isLoading) {
-                        CircularProgressIndicator(
+                        LoadingIndicator(
                             modifier = Modifier.align(Alignment.Center)
                         )
                     } else if (monitorStatusGroup.isEmpty) {
@@ -346,7 +346,7 @@ fun MainScreen(
                 CheckTab.ORG_TODO -> {
                     when (val state = todoUiState) {
                         TodoUiState.Loading -> {
-                            CircularProgressIndicator(
+                            LoadingIndicator(
                                 modifier = Modifier.align(Alignment.Center)
                             )
                         }

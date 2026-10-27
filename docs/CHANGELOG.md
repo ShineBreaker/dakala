@@ -18,6 +18,8 @@
 - **使用时长统计**：日聚合桶（`queryUsageStats`）换成前台事件流聚合（`queryEvents`），支持任意重置边界；跨重置点未退出的会话经事件回溯计入，窗口起点前后台切换、Activity 乱序事件均可正确计入；时长显示支持小时级（如「1小时5分钟」）
 - **跨周期自动刷新**：主界面 onResume 按「每应用重置点 + 周期日期键」快照检测翻篇，不再只认自然日零点
 - Room 数据库 v3 → v4（`app_items` 新增 `resetTimeMinutes` 列，`app_settings` 新增 `default_reset_time` 键；沿用 destructive fallback）
+- **Material 3 Expressive 迁移**：material3 1.3.1 → 1.5.0-beta02（1.4.0 stable 把实验 API 标为 internal，expressive 组件仅 1.5 线可用），全界面换用 expressive 组件——进度条改 `LinearWavyProgressIndicator`（波浪形）、加载态改 `LoadingIndicator`（形变）、应用选择底部操作条改 `HorizontalFloatingToolbar`+FAB、搜索栏改 `AppBarWithSearch`（SearchBarState/TextFieldState API）、主 Tab 改 `PrimaryTabRow`、打卡/待办勾选改 `IconToggleButton`、应用多选改 `Checkbox`、分区计数改 `Badge`、对话框内次要动作改 `OutlinedButton`；`ListItem`/`Slider` 同步迁移到 1.5 新签名（content lambda / SliderState）
+- **应用图标加载**：监控卡片与应用选择行的图标读取/解码/灰度化移出组合线程（`produceState` + IO），列表滚动不再在主线程做磁盘 IO 与像素遍历
 
 ### 技术细节
 
@@ -25,6 +27,8 @@
 - 新增 `WheelPicker.kt` - 可复用滚轮组件（LazyColumn + 吸附惯性）
 - `UsageStatsUseCase.kt` - `AppUsageQuery`（包名+重置点）批量查询，`foregroundSeconds` 纯函数可单测
 - `DayStamp.kt` / `DayStampTest.kt` 删除，由 `DayResetTime` 取代（新增 `DayResetTimeTest` 8 条 + 事件聚合用例 11 条）
+- composeBom 2025.01.00 → 2025.12.01（Compose 1.10）；compileSdk 36.1 → 37.2（material3 1.5 要求 ≥37，targetSdk 保持 36 不引入新运行时行为约束）
+- `settings.gradle.kts`：非 CI 构建把阿里云镜像提前于 `google()`——`dl.google.com` 不可达时网络错误会直接终止解析而不回退镜像
 
 ## [1.1.0] - 2026-10-22
 

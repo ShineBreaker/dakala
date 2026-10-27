@@ -25,12 +25,14 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
-        mavenCentral()
+        // 本地构建 dl.google.com 不可达：阿里云镜像必须先于 google()，
+        // 否则对 google() 的网络错误会直接终止解析而不回退镜像
         if (System.getenv("CI") != "true") {
             maven { url = uri("https://maven.aliyun.com/repository/google") }
             maven { url = uri("https://maven.aliyun.com/repository/public") }
         }
+        google()
+        mavenCentral()
     }
 }
 

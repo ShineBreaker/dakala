@@ -45,3 +45,9 @@
 ## 6. 设置存储
 
 - 全部用户设置存 Room `app_settings` 表（key-value），键名集中在 `AppSetting` companion 常量，默认值回退逻辑收敛在领域模型（如 `NotificationTime.parse`、`WidgetOpacity.parse`），读写两侧不各自 hardcode 默认值。
+
+## 7. 组件选型：Material 3 Expressive 优先
+
+- **expressive 组件优先**：material3 1.5.x 已带的 M3 Expressive 组件优先于经典组件——进度指示用 `LinearWavyProgressIndicator`（波浪形），不确定加载用 `LoadingIndicator`（形变），底部操作条用 `HorizontalFloatingToolbar` + FAB，主 Tab 行用 `PrimaryTabRow`，切换语义用 `IconToggleButton` / `Checkbox`，计数徽标用 `Badge`，搜索栏用 `AppBarWithSearch` + `SearchBarState`/`TextFieldState`。
+- **实验 API 注解隔离**：仍挂 `@ExperimentalMaterial3ExpressiveApi` 的 API 只在调用点 `@OptIn`，不沉淀进主题层；组件稳定化后逐个摘除注解。
+- **自绘不引第三方样式库**：expressive 覆盖不到的自定义件（滚轮选择器、emoji 网格）沿用 `MaterialTheme.colorScheme` / `shapes` 取料，与第 1 节调色板规则同源，不出现硬编码色值。

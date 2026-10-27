@@ -1,13 +1,17 @@
 package com.dakala.app.ui
 
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -25,6 +29,8 @@ import com.dakala.app.ui.components.drawableToBitmap
 import com.dakala.app.ui.theme.DakalaTheme
 import com.dakala.app.ui.viewmodel.AppSelectionViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * 应用选择Activity
@@ -60,7 +66,7 @@ class AppSelectionActivity : ComponentActivity() {
  * @param onBack 返回回调
  * @param viewModel AppSelectionViewModel
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppSelectionScreen(
     onBack: () -> Unit,
@@ -72,39 +78,41 @@ fun AppSelectionScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // 搜索状态
+    // 搜索状态：TextFieldState 持有查询文本，实时同步给 ViewModel 过滤
     var isSearching by remember { mutableStateOf(false) }
-    var searchText by remember { mutableStateOf(searchQuery) }
+    val searchBarState = rememberSearchBarState()
+    val searchTextFieldState = rememberTextFieldState(searchQuery)
+
+    LaunchedEffect(searchTextFieldState) {
+        snapshotFlow { searchTextFieldState.text.toString() }
+            .collect { viewModel.setSearchQuery(it) }
+    }
 
     Scaffold(
         topBar = {
             if (isSearching) {
-                // 搜索模式
-                TopAppBar(
-                    title = {
-                        OutlinedTextField(
-                            value = searchText,
-                            onValueChange = {
-                                searchText = it
-                                viewModel.setSearchQuery(it)
-                            },
+                // 搜索模式：M3 顶置搜索栏
+                AppBarWithSearch(
+                    state = searchBarState,
+                    inputField = {
+                        SearchBarDefaults.InputField(
+                            textFieldState = searchTextFieldState,
+                            searchBarState = searchBarState,
+                            onSearch = {},
                             placeholder = { Text("搜索应用") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            leadingIcon = {
+                                IconButton(onClick = {
+                                    isSearching = false
+                                    searchTextFieldState.clearText()
+                                }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                                }
+                            }
                         )
                     },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            isSearching = false
-                            searchText = ""
-                            viewModel.setSearchQuery("")
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
-                    )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             } else {
                 // 正常模式
@@ -127,33 +135,35 @@ fun AppSelectionScreen(
             }
         },
         bottomBar = {
-            // 底部操作栏
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shadowElevation = 8.dp
+            // 底部操作栏（M3 Expressive 浮动工具栏 + 保存 FAB）
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                HorizontalFloatingToolbar(
+                    expanded = true,
+                    floatingActionButton = {
+                        ExtendedFloatingActionButton(
+                            onClick = {
+                                viewModel.saveSelectedApps()
+                                onBack()
+                            },
+                            icon = {
+                                Icon(Icons.Default.Check, contentDescription = null)
+                            },
+                            text = { Text("保存") }
+                        )
+                    }
                 ) {
                     Text(
                         text = "已选择 ${selectedPackages.size} 个应用",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     )
-                    Row {
-                        TextButton(onClick = { viewModel.deselectAll() }) {
-                            Text("取消全选")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = {
-                            viewModel.saveSelectedApps()
-                            onBack()
-                        }) {
-                            Text("保存")
-                        }
+                    TextButton(onClick = { viewModel.deselectAll() }) {
+                        Text("取消全选")
                     }
                 }
             }
@@ -166,7 +176,7 @@ fun AppSelectionScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                LoadingIndicator()
             }
         } else {
             LazyColumn(
@@ -202,12 +212,14 @@ fun AppSelectionItem(
 ) {
     val context = LocalContext.current
 
-    // 获取应用图标
-    val appIcon = remember(app.packageName) {
-        try {
-            context.packageManager.getApplicationIcon(app.packageName)
-        } catch (e: Exception) {
-            context.getDrawable(android.R.drawable.sym_def_app_icon)
+    // 应用图标：包管理器读取与位图转换放 IO 线程，避免滚动期间阻塞组合
+    val appIcon by produceState<Bitmap?>(initialValue = null, app.packageName) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                drawableToBitmap(context.packageManager.getApplicationIcon(app.packageName))
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 
@@ -218,16 +230,15 @@ fun AppSelectionItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 应用图标
-        appIcon?.let { drawable ->
-            androidx.compose.foundation.Image(
-                bitmap = android.graphics.drawable.BitmapDrawable(
-                    context.resources,
-                    com.dakala.app.ui.components.drawableToBitmap(drawable)
-                ).bitmap.asImageBitmap(),
-                contentDescription = app.appName,
-                modifier = Modifier.size(40.dp)
-            )
+        // 应用图标：固定占位，解码完成前不挤压布局
+        Box(modifier = Modifier.size(40.dp)) {
+            appIcon?.let { bitmap ->
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = app.appName,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -245,14 +256,10 @@ fun AppSelectionItem(
             )
         }
 
-        // 选中状态
-        if (isSelected) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = "已选中",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-        }
+        // 选中状态（行整行可点，Checkbox 只做状态展示）
+        Checkbox(
+            checked = isSelected,
+            onCheckedChange = null
+        )
     }
 }
