@@ -107,11 +107,13 @@ CI 配置在 `.github/workflows/`：
 
 1. 在 `docs/CHANGELOG.md` 顶部把 `[Unreleased]`（或新增一节）写成 `## [x.y.z] - YYYY-MM-DD`，该段落即发布文案。
 2. `app/build.gradle.kts` 中 `versionCode` 递增、`versionName` 改为 `x.y.z`。
-3. 提交后打 tag 并推送：
+3. 提交后打 tag，然后**带 `--follow-tags` 推送**：
 
    ```bash
-   git tag v1.0.7 && git push origin main v1.0.7
+   git tag v1.0.7 && git push --follow-tags origin main
    ```
+
+   `git push` 默认不携带 tag；漏推 tag 则 `release.yml` 永不触发——main 上 CI 会跑且显示成功，但 Releases 页不会出现新版本（v1.2.0 曾踩此坑）。`--follow-tags` 把指向本次推送提交的 tag 一并推送，比显式写 tag 名更不易漏。
 
 ### 签名 secrets（发布签名 APK 必须）
 
