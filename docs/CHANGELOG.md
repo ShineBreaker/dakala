@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-28
+
+### 修复
+
+- **应用选择页底部实色横带**：`HorizontalFloatingToolbar` 误放在 Scaffold `bottomBar` 槽，槽区预留布局高度露出底色形成不透内容的横带；移至 `floatingActionButton` 槽（`FabPosition.Center`）恢复悬浮语义，列表底部留白避免末行被工具栏遮挡
+
 ## [1.2.1] - 2026-10-28
 
 ### 修复
