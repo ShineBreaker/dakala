@@ -118,6 +118,7 @@
 - **改动前先记录基线**：跑一次 `./gradlew ktlintCheck test --no-configuration-cache` 并记下结果。
 - **基线本来就红**：停手，先单独立项修复（另开候选卡）或经批准扩大本次范围；不得把既有红当既有事实绕过。
 - **提交前必须绿**：基线绿而改后红，说明本次改动破坏了什么，就地修复，不绕过、不推迟。
+- **Room schema 变更必须配套显式 `Migration`**：升 `@Database` version 或改任何实体字段时，同一提交内必须有对应 `Migration(n, n+1)` 并 `addMigrations`；`fallbackToDestructiveMigration` 仅兜未映射路径——没有迁移路径的升级会删光用户表（v1.2.0 事故），此为数据安全红线，不是可选项。
 - `--no-configuration-cache` 不可省略（AGP/WorkManager 兼容性，见 `AGENTS.md`）。
 
 ## 7. 提交

@@ -86,7 +86,7 @@ app/src/main/java/com/dakala/app/
 | 完全离线 | 无网络层，无 Retrofit/OkHttp，无 API 密钥 |
 | PACKAGE_USAGE_STATS | 系统「使用情况访问」权限，无法代码请求，需引导用户到系统设置手动开启 |
 | Room 主线程查询 | `allowMainThreadQueries=true`（简单场景刻意为之） |
-| Room 迁移 | `fallbackToDestructiveMigration()`（Schema 变更时数据不保留） |
+| Room 迁移 | Schema 变更**必须配套显式 `Migration`**（已有 `MIGRATION_3_4`）；`fallbackToDestructiveMigration()` 仅作未映射版本跳跃的兜底，不能替代迁移——v1.2.0 曾因纯 fallback 删光用户数据 |
 | Lint 宽松 | `abortOnError=false, checkReleaseBuilds=false` |
 
 ## 依赖管理

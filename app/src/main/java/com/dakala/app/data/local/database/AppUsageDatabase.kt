@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dakala.app.data.local.dao.AppItemDao
 import com.dakala.app.data.local.dao.UsageRecordDao
 import com.dakala.app.data.local.dao.AppSettingDao
@@ -69,6 +71,18 @@ abstract class AppUsageDatabase : RoomDatabase() {
     companion object {
         private const val DATABASE_NAME = "dakala_database"
 
+        /**
+         * v3 → v4：app_items 新增可空列 resetTimeMinutes（每日重置点，null=跟随全局）。
+         * 不可写 DEFAULT 子句——Room 校验 schema 时比对 PRAGMA dflt_value，
+         * 显式 DEFAULT NULL 与实体侧期望不一致会被判为校验失败进而触发删表。
+         */
+        private val MIGRATION_3_4 =
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE app_items ADD COLUMN `resetTimeMinutes` INTEGER")
+                }
+            }
+
         @Volatile
         private var INSTANCE: AppUsageDatabase? = null
 
@@ -94,7 +108,8 @@ abstract class AppUsageDatabase : RoomDatabase() {
             )
                 // 允许主线程查询（仅用于简单查询，生产环境应避免）
                 .allowMainThreadQueries()
-                // 数据库迁移策略（版本升级时使用）
+                .addMigrations(MIGRATION_3_4)
+                // 仅未映射版本跳跃的兜底；有显式 Migration 的路径不会走到删表
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
         }
