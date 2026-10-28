@@ -134,40 +134,36 @@ fun AppSelectionScreen(
                 )
             }
         },
-        bottomBar = {
-            // 底部操作栏（M3 Expressive 浮动工具栏 + 保存 FAB）
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                HorizontalFloatingToolbar(
-                    expanded = true,
-                    floatingActionButton = {
-                        ExtendedFloatingActionButton(
-                            onClick = {
-                                viewModel.saveSelectedApps()
-                                onBack()
-                            },
-                            icon = {
-                                Icon(Icons.Default.Check, contentDescription = null)
-                            },
-                            text = { Text("保存") }
-                        )
-                    }
-                ) {
-                    Text(
-                        text = "已选择 ${selectedPackages.size} 个应用",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+        floatingActionButton = {
+            // 底部操作条（M3 Expressive 浮动工具栏 + 保存 FAB）
+            // 悬浮组件必须放 FAB 槽：bottomBar 槽会预留布局高度露出 Scaffold 底色，
+            // 形成不透内容的实色横带，悬浮语义尽失
+            HorizontalFloatingToolbar(
+                expanded = true,
+                floatingActionButton = {
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            viewModel.saveSelectedApps()
+                            onBack()
+                        },
+                        icon = {
+                            Icon(Icons.Default.Check, contentDescription = null)
+                        },
+                        text = { Text("保存") }
                     )
-                    TextButton(onClick = { viewModel.deselectAll() }) {
-                        Text("取消全选")
-                    }
+                }
+            ) {
+                Text(
+                    text = "已选择 ${selectedPackages.size} 个应用",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                TextButton(onClick = { viewModel.deselectAll() }) {
+                    Text("取消全选")
                 }
             }
-        }
+        },
+        floatingActionButtonPosition = FabPosition.Center
     ) { paddingValues ->
         if (isLoading) {
             Box(
@@ -183,7 +179,8 @@ fun AppSelectionScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                // FAB 槽不占布局高度，底部留空让末行能滚出悬浮工具栏的遮挡区
+                contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)
             ) {
                 items(filteredApps, key = { it.packageName }) { app ->
                     AppSelectionItem(
