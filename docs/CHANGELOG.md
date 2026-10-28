@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-28
+
+### 修复
+
+- **修复升级清空全部数据**：v1.1.0 → v1.2.0 时 Room v3→v4 无显式迁移路径，destructive fallback 删表重建，监控应用、使用记录、自定义打卡与设置全部丢失。新增 `Migration(3,4)`（`ALTER TABLE app_items ADD COLUMN resetTimeMinutes`），从 v3 升级保留全部数据；fallback 仅作未映射版本兜底。**已在 1.2.0 完成升级的设备数据不可恢复，请从 1.1.0 直接升到本版**
+
 ## [1.2.0] - 2026-10-28
 
 ### 新增
