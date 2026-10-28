@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,13 +19,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
+import kotlinx.coroutines.launch
 
 /**
  * 滚轮选择器（单列）
@@ -75,16 +81,37 @@ fun WheelPicker(
         }
     }
 
-    // 滚动吸附落定后上报
-    LaunchedEffect(centeredIndex) {
-        if (centeredIndex != selectedIndex) {
-            onSelectedIndexChange(centeredIndex)
+    // 滚动由外部改值（预设跳转）驱动期间抑制落定上报：动画中途的
+    // 中间位置不能回传，否则 selectedIndex 被写回中间值、打断
+    // animateScrollToItem——预设跳转只滚 1~3 格就停正是这个回环。
+    // 动画自身到达目标、或用户手势接管滚动时才解除抑制。
+    var programmaticScroll by remember { mutableStateOf(false) }
+    val latestSelectedIndex by rememberUpdatedState(selectedIndex)
+    val latestOnSelectedIndexChange by rememberUpdatedState(onSelectedIndexChange)
+    LaunchedEffect(listState) {
+        launch {
+            listState.interactionSource.interactions.collect { interaction ->
+                if (interaction is DragInteraction.Start) {
+                    programmaticScroll = false
+                }
+            }
         }
+        snapshotFlow { listState.isScrollInProgress to centeredIndex }
+            .collect { (isScrolling, index) ->
+                if (!isScrolling) {
+                    if (index == latestSelectedIndex) {
+                        programmaticScroll = false
+                    } else if (!programmaticScroll) {
+                        latestOnSelectedIndexChange(index)
+                    }
+                }
+            }
     }
 
     // 外部改值（预设快捷项）时滚到目标项
     LaunchedEffect(selectedIndex) {
         if (centeredIndex != selectedIndex) {
+            programmaticScroll = true
             listState.animateScrollToItem(selectedIndex)
         }
     }
