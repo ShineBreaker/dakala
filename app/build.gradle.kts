@@ -44,8 +44,8 @@ android {
         applicationId = "com.dakala.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.2.2"
+        versionCode = 15
+        versionName = "1.2.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
